@@ -1,4 +1,5 @@
 import requests
+from rich import console as rich_console, markdown as rich_markdown
 import typing
 import subprocess
 import json
@@ -54,8 +55,6 @@ TEMPERATURE: float = 1.0
 
 TOOL_CHOICE: ToolChoiceType = "auto"
 
-SYSTEM_MESSAGES: list[str] = []
-
 TOOLS: list[typing.Dict[str, typing.Any]] = [
     {
         "type": "function",
@@ -70,6 +69,37 @@ TOOLS: list[typing.Dict[str, typing.Any]] = [
             },
         },
     }
+]
+
+
+def execute_bash_command(command: str) -> tuple[str, str, int]:
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+    return result.stdout, result.stderr, result.returncode
+
+
+SYSTEM_COMMAND_1 = "uname -a"
+SYSTEM_COMMAND_STDOUT_1, SYSTEM_COMMAND_STDERR_1, SYSTEM_COMMAND_RETURNCODE_1 = execute_bash_command(SYSTEM_COMMAND_1)
+
+SYSTEM_COMMAND_2 = "cat /etc/os-release"
+SYSTEM_COMMAND_STDOUT_2, SYSTEM_COMMAND_STDERR_2, SYSTEM_COMMAND_RETURNCODE_2 = execute_bash_command(SYSTEM_COMMAND_2)
+
+SYSTEM_COMMAND_3 = "hostnamectl"
+SYSTEM_COMMAND_STDOUT_3, SYSTEM_COMMAND_STDERR_3, SYSTEM_COMMAND_RETURNCODE_3 = execute_bash_command(SYSTEM_COMMAND_3)
+
+SYSTEM_COMMAND_4 = "getent passwd ${USER}"
+SYSTEM_COMMAND_STDOUT_4, SYSTEM_COMMAND_STDERR_4, SYSTEM_COMMAND_RETURNCODE_4 = execute_bash_command(SYSTEM_COMMAND_4)
+
+
+def get_formatted_command_output(stdout: str, stderr: str, returncode: int) -> str:
+    return f"------- STDOUT -------\n\n{stdout.strip()}\n\n------- STDERR -------\n\n{stderr.strip()}\n\n----- RETURNCODE -----\n\n{returncode}"
+
+
+SYSTEM_MESSAGES: list[str] = [
+    f"$ {SYSTEM_COMMAND_1}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_1, SYSTEM_COMMAND_STDERR_1, SYSTEM_COMMAND_RETURNCODE_1)}",
+    f"$ {SYSTEM_COMMAND_2}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_2, SYSTEM_COMMAND_STDERR_2, SYSTEM_COMMAND_RETURNCODE_2)}",
+    f"$ {SYSTEM_COMMAND_3}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_3, SYSTEM_COMMAND_STDERR_3, SYSTEM_COMMAND_RETURNCODE_3)}",
+    f"$ {SYSTEM_COMMAND_4}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_4, SYSTEM_COMMAND_STDERR_4, SYSTEM_COMMAND_RETURNCODE_4)}",
+    "You are a terminal-based AI assistant capable of running any bash commands on the user's system.",
 ]
 
 
@@ -100,8 +130,8 @@ def get_llm_output(
         print(response.status_code)
         print(json.dumps(data, indent=2))
     message = data["choices"][0]["message"]
-    content = message.get("content", "").strip()
-    reasoning_content = message.get("reasoning_content", "").strip()
+    content: str = message.get("content", "").strip()
+    reasoning_content: str = message.get("reasoning_content", "").strip()
     tool_calls: list[ToolCall] = []
     message_tool_calls = message.get("tool_calls", [])
     for message_tool_call in message_tool_calls:
@@ -142,13 +172,11 @@ def add_to_llm_messages(
         llm_messages.append(new_tool_message)
 
 
-def execute_bash_command(command: str) -> tuple[str, str, int]:
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    return result.stdout, result.stderr, result.returncode
-
-
 def print_command(command: str) -> None:
-    input(f"Tool $ {command}\n\nPress ENTER to continue...")
+    input(
+        f"------------------------------------- TOOL -------------------------------------\n\n{command}\n\nPress ENTER to continue..."
+    )
+    print("\n", end="")
 
 
 def process_tool_calls(tool_calls: list[ToolCall], messages: list[DeepSeekMessage]) -> None:
@@ -159,37 +187,40 @@ def process_tool_calls(tool_calls: list[ToolCall], messages: list[DeepSeekMessag
             command = args["command"]
             print_command(command)
             stdout, stderr, returncode = execute_bash_command(command)
-            result_parts = []
-            if stdout:
-                result_parts.append(f"stdout:\n{stdout}")
-            if stderr:
-                result_parts.append(f"stderr:\n{stderr}")
-            result_parts.append(f"returncode: {returncode}")
-            result = "\n---\n".join(result_parts)
-            add_to_llm_messages(messages, "tool", result, "", [], tool_call["id"])
+            formatted_command_output = get_formatted_command_output(stdout, stderr, returncode)
+            add_to_llm_messages(messages, "tool", formatted_command_output, "", [], tool_call["id"])
 
 
 def create_llm_messages(llm_system_messages: list[str]) -> list[DeepSeekMessage]:
     llm_messages: list[DeepSeekMessage] = []
     for llm_system_message in llm_system_messages:
-        add_to_llm_messages(llm_messages, "system", llm_system_message.strip())
+        trimmed_system_message: str = llm_system_message.strip()
+        if len(trimmed_system_message) != 0:
+            add_to_llm_messages(llm_messages, "system", trimmed_system_message)
     return llm_messages
 
 
 def print_message(message: str, reasoning: str = "") -> None:
-    if len(reasoning) != 0 and len(message) != 0:
-        print(f"\nAssistant * {reasoning}\n\nAssistant > {message}\n")
-    elif len(reasoning) != 0:
-        print(f"\nAssistant * {reasoning}\n")
-    elif len(message) != 0:
-        print(f"\nAssistant > {message}\n")
+    rich_console_instance = rich_console.Console(no_color=True)
+    if len(reasoning) != 0:
+        print(f"---------------------------- ASSISTANT (reasoning) -----------------------------\n\n", end="")
+        rich_console_instance.print(rich_markdown.Markdown(reasoning))
+        print(f"\n", end="")
+    if len(message) != 0:
+        print(f"---------------------------------- ASSISTANT -----------------------------------\n\n", end="")
+        rich_console_instance.print(rich_markdown.Markdown(message))
+        print(f"\n", end="")
 
 
 def main() -> None:
+    print("\n", end="")
     llm_messages = create_llm_messages(SYSTEM_MESSAGES)
     try:
         while True:
-            llm_input = input("User > ").strip()
+            llm_input = input(
+                "------------------------------------- USER -------------------------------------\n\n> "
+            ).strip()
+            print("\n", end="")
             if len(llm_input) == 0:
                 continue
             add_to_llm_messages(llm_messages, "user", llm_input)
@@ -203,9 +234,8 @@ def main() -> None:
                     process_tool_calls(tool_calls, llm_messages)
                 else:
                     break
-            print("--------------------------------------------------------------------------------\n")
     except KeyboardInterrupt:
-        pass
+        print("\n\n--------------------------------------------------------------------------------\n\n", end="")
 
 
 if __name__ == "__main__":
