@@ -102,18 +102,20 @@ def execute_bash_command(command: str) -> tuple[str, str, int]:
     return result.stdout, result.stderr, result.returncode
 
 
-SYSTEM_COMMAND_1 = "uname -a"
+SYSTEM_COMMAND_1 = "date"
 SYSTEM_COMMAND_STDOUT_1, SYSTEM_COMMAND_STDERR_1, SYSTEM_COMMAND_RETURNCODE_1 = execute_bash_command(SYSTEM_COMMAND_1)
 
-SYSTEM_COMMAND_2 = "cat /etc/os-release"
+SYSTEM_COMMAND_2 = "getent passwd ${USER}"
 SYSTEM_COMMAND_STDOUT_2, SYSTEM_COMMAND_STDERR_2, SYSTEM_COMMAND_RETURNCODE_2 = execute_bash_command(SYSTEM_COMMAND_2)
 
-SYSTEM_COMMAND_3 = "hostnamectl"
+SYSTEM_COMMAND_3 = "uname -a"
 SYSTEM_COMMAND_STDOUT_3, SYSTEM_COMMAND_STDERR_3, SYSTEM_COMMAND_RETURNCODE_3 = execute_bash_command(SYSTEM_COMMAND_3)
 
-SYSTEM_COMMAND_4 = "getent passwd ${USER}"
+SYSTEM_COMMAND_4 = "cat /etc/os-release"
 SYSTEM_COMMAND_STDOUT_4, SYSTEM_COMMAND_STDERR_4, SYSTEM_COMMAND_RETURNCODE_4 = execute_bash_command(SYSTEM_COMMAND_4)
 
+SYSTEM_COMMAND_5 = "hostnamectl"
+SYSTEM_COMMAND_STDOUT_5, SYSTEM_COMMAND_STDERR_5, SYSTEM_COMMAND_RETURNCODE_5 = execute_bash_command(SYSTEM_COMMAND_5)
 
 def get_formatted_command_output(stdout: str, stderr: str, returncode: int) -> str:
     formatted_command_output: str = ""
@@ -138,6 +140,7 @@ SYSTEM_MESSAGES: list[str] = [
     f"$ {SYSTEM_COMMAND_2}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_2, SYSTEM_COMMAND_STDERR_2, SYSTEM_COMMAND_RETURNCODE_2)}",
     f"$ {SYSTEM_COMMAND_3}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_3, SYSTEM_COMMAND_STDERR_3, SYSTEM_COMMAND_RETURNCODE_3)}",
     f"$ {SYSTEM_COMMAND_4}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_4, SYSTEM_COMMAND_STDERR_4, SYSTEM_COMMAND_RETURNCODE_4)}",
+    f"$ {SYSTEM_COMMAND_5}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_5, SYSTEM_COMMAND_STDERR_5, SYSTEM_COMMAND_RETURNCODE_5)}",
 ]
 
 
