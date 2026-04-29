@@ -1,11 +1,12 @@
 import random
 import requests
-from rich import console as rich_console, markdown as rich_markdown
 import time
 import typing
 import subprocess
 import json
 import ddgs
+
+import terminal_ui
 
 FunctionType = typing.Literal["function"]
 RoleType = typing.Literal["assistant", "tool", "user", "system"]
@@ -74,11 +75,13 @@ class DeepSeekEnvironment(typing.TypedDict):
 class DuckDuckGoEnvironment(typing.TypedDict):
     safesearch: typing.Required[DuckDuckGoSafeSearchType]
     default_max_results: typing.Required[int]
+    default_page: typing.Required[int]
 
 
 class Environment(typing.TypedDict):
     deepseek: typing.Required[DeepSeekEnvironment]
     duckduckgo: typing.Required[DuckDuckGoEnvironment]
+    terminal: typing.Required[terminal_ui.TerminalEnvironment]
 
 
 TOOLS: list[typing.Dict[str, typing.Any]] = [
@@ -153,57 +156,69 @@ ENVIRONMENT: Environment = Environment(
     duckduckgo=DuckDuckGoEnvironment(
         safesearch="off",
         default_max_results=10,
+        default_page=1,
     ),
+    terminal=terminal_ui.TerminalEnvironment(show_reasoning=True),
 )
 
 
-def execute_bash_command(command: str) -> tuple[str, str, int]:
+def ui_startup() -> None:
+    terminal_ui.startup()
+
+
+def ui_teardown() -> None:
+    terminal_ui.teardown()
+
+
+def get_user_input() -> str:
+    return terminal_ui.get_user_input()
+
+
+def print_assistant_message(
+    terminal_environment: terminal_ui.TerminalEnvironment, message: str, reasoning: str = ""
+) -> None:
+    terminal_ui.print_assistant_message(terminal_environment, message, reasoning)
+
+
+def prompt_for_bash_command_permission(command: str) -> bool:
+    return terminal_ui.prompt_for_bash_command_permission(command)
+
+
+def print_random_integer(min_integer: int, max_integer: int) -> None:
+    terminal_ui.print_random_integer(min_integer, max_integer)
+
+
+def print_web_search(query: str, max_results: int, page: int) -> None:
+    terminal_ui.print_web_search(query, max_results, page)
+
+
+def execute_bash_command(permission_granted: bool, command: str) -> tuple[str, str, int]:
+    if not permission_granted:
+        return "", "", 0
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     return result.stdout, result.stderr, result.returncode
 
 
-SYSTEM_COMMAND_1 = "date"
-SYSTEM_COMMAND_STDOUT_1, SYSTEM_COMMAND_STDERR_1, SYSTEM_COMMAND_RETURNCODE_1 = execute_bash_command(SYSTEM_COMMAND_1)
-
-SYSTEM_COMMAND_2 = "getent passwd ${USER}"
-SYSTEM_COMMAND_STDOUT_2, SYSTEM_COMMAND_STDERR_2, SYSTEM_COMMAND_RETURNCODE_2 = execute_bash_command(SYSTEM_COMMAND_2)
-
-SYSTEM_COMMAND_3 = "uname -a"
-SYSTEM_COMMAND_STDOUT_3, SYSTEM_COMMAND_STDERR_3, SYSTEM_COMMAND_RETURNCODE_3 = execute_bash_command(SYSTEM_COMMAND_3)
-
-SYSTEM_COMMAND_4 = "cat /etc/os-release"
-SYSTEM_COMMAND_STDOUT_4, SYSTEM_COMMAND_STDERR_4, SYSTEM_COMMAND_RETURNCODE_4 = execute_bash_command(SYSTEM_COMMAND_4)
-
-SYSTEM_COMMAND_5 = "hostnamectl"
-SYSTEM_COMMAND_STDOUT_5, SYSTEM_COMMAND_STDERR_5, SYSTEM_COMMAND_RETURNCODE_5 = execute_bash_command(SYSTEM_COMMAND_5)
+def get_bash_command_as_system_message(command: str) -> str:
+    stdout, stderr, returncode = execute_bash_command(True, command)
+    return f"$ {command}\n\n{get_formatted_bash_command_output(True, stdout, stderr, returncode)}"
 
 
-def get_formatted_command_output(stdout: str, stderr: str, returncode: int) -> str:
-    formatted_command_output: str = ""
-    trimmed_stdout = stdout.strip()
-    if len(trimmed_stdout) != 0:
-        formatted_command_output += f"--- STDOUT ---\n\n{trimmed_stdout}\n\n"
-    trimmed_stderr = stderr.strip()
-    if len(trimmed_stderr) != 0:
-        formatted_command_output += f"--- STDERR ---\n\n{trimmed_stderr}\n\n"
-    if returncode != 0:
-        formatted_command_output += f"--- RETURNCODE ---\n\n{returncode}\n\n"
-    return formatted_command_output.strip()
-
-
-SYSTEM_MESSAGES: list[str] = [
-    "You must always reply using proper English (US) grammar",
-    "You must always reply using strict Markdown syntax with proper formatting",
-    "You are an AI assistant operating in a text-only terminal interface",
-    'You are a capable of running any bash commands on the user\'s system using the "run_bash_command" function',
-    'You are capable of getting a random integer number using the "get_random_integer" function',
-    'You are capable of searching the web using the "web_search" function',
-    f"$ {SYSTEM_COMMAND_1}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_1, SYSTEM_COMMAND_STDERR_1, SYSTEM_COMMAND_RETURNCODE_1)}",
-    f"$ {SYSTEM_COMMAND_2}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_2, SYSTEM_COMMAND_STDERR_2, SYSTEM_COMMAND_RETURNCODE_2)}",
-    f"$ {SYSTEM_COMMAND_3}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_3, SYSTEM_COMMAND_STDERR_3, SYSTEM_COMMAND_RETURNCODE_3)}",
-    f"$ {SYSTEM_COMMAND_4}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_4, SYSTEM_COMMAND_STDERR_4, SYSTEM_COMMAND_RETURNCODE_4)}",
-    f"$ {SYSTEM_COMMAND_5}\n\n{get_formatted_command_output(SYSTEM_COMMAND_STDOUT_5, SYSTEM_COMMAND_STDERR_5, SYSTEM_COMMAND_RETURNCODE_5)}",
-]
+def get_system_messages() -> list[str]:
+    system_messages: list[str] = [
+        "You must always reply using proper English (US) grammar",
+        "You must always reply using strict Markdown syntax with proper formatting",
+        "You are an AI assistant operating in a text-only terminal interface",
+        'You are a capable of running any bash commands on the user\'s system using the "run_bash_command" function',
+        'You are capable of getting a random integer number using the "get_random_integer" function',
+        'You are capable of searching the web using the "web_search" function',
+        get_bash_command_as_system_message("getent passwd ${USER}"),
+        get_bash_command_as_system_message("uname -a"),
+        get_bash_command_as_system_message("cat /etc/os-release"),
+        get_bash_command_as_system_message("hostnamectl"),
+        get_bash_command_as_system_message("date"),
+    ]
+    return system_messages
 
 
 def get_llm_output(
@@ -278,25 +293,19 @@ def add_to_llm_messages(
         llm_messages.append(new_tool_message)
 
 
-def print_bash_command(command: str) -> None:
-    input(
-        f"------------------------------------- TOOL -------------------------------------\n\n{command}\n\nPress ENTER to continue..."
-    )
-    print("\n", end="")
-
-
-def print_random_integer(min_integer: int, max_integer: int) -> None:
-    print(
-        f'------------------------------------- TOOL -------------------------------------\n\nPicking a random integer between "{min_integer}" (inclusive) and "{max_integer}" (inclusive)\n\n',
-        end="",
-    )
-
-
-def print_web_search(query: str, max_results: int, page: int) -> None:
-    print(
-        f'------------------------------------- TOOL -------------------------------------\n\nSearching the web for "{query}" ({max_results} results - page {page})\n\n',
-        end="",
-    )
+def get_formatted_bash_command_output(permission_granted: bool, stdout: str, stderr: str, returncode: int) -> str:
+    formatted_command_output: str = ""
+    if not permission_granted:
+        return "Bash command execution manually denied by the user"
+    trimmed_stdout = stdout.strip()
+    if len(trimmed_stdout) != 0:
+        formatted_command_output += f"--- STDOUT ---\n\n{trimmed_stdout}\n\n"
+    trimmed_stderr = stderr.strip()
+    if len(trimmed_stderr) != 0:
+        formatted_command_output += f"--- STDERR ---\n\n{trimmed_stderr}\n\n"
+    if returncode != 0:
+        formatted_command_output += f"--- RETURNCODE ---\n\n{returncode}\n\n"
+    return formatted_command_output.strip()
 
 
 def search_web(duckduckgo_environment: DuckDuckGoEnvironment, query: str, max_results: int, page: int) -> str:
@@ -311,9 +320,7 @@ def search_web(duckduckgo_environment: DuckDuckGoEnvironment, query: str, max_re
     for raw_search_result in raw_search_results:
         search_results.append(
             DuckDuckGoSearchResult(
-                title=raw_search_result["title"],
-                href=raw_search_result["href"],
-                body=raw_search_result["body"],
+                title=raw_search_result["title"], href=raw_search_result["href"], body=raw_search_result["body"]
             )
         )
     text_results: list[str] = []
@@ -327,12 +334,13 @@ def process_tool_calls(
 ) -> None:
     for tool_call in tool_calls:
         if tool_call["function"]["name"] == "run_bash_command":
-            command: str = ""
             function_arguments = json.loads(tool_call["function"]["arguments"])
-            command = function_arguments["command"]
-            print_bash_command(command)
-            stdout, stderr, returncode = execute_bash_command(command)
-            formatted_command_output = get_formatted_command_output(stdout, stderr, returncode)
+            command: str = function_arguments["command"]
+            permission_granted: bool = prompt_for_bash_command_permission(command)
+            stdout, stderr, returncode = execute_bash_command(permission_granted, command)
+            formatted_command_output: str = get_formatted_bash_command_output(
+                permission_granted, stdout, stderr, returncode
+            )
             add_to_llm_messages(messages, "tool", formatted_command_output, "", [], tool_call["id"])
         elif tool_call["function"]["name"] == "get_random_integer":
             function_arguments = json.loads(tool_call["function"]["arguments"])
@@ -345,7 +353,7 @@ def process_tool_calls(
             function_arguments = json.loads(tool_call["function"]["arguments"])
             query: str = function_arguments["query"]
             max_results: int = function_arguments.get("max_results", duckduckgo_environment["default_max_results"])
-            page: int = function_arguments.get("page", 1)
+            page: int = function_arguments.get("page", duckduckgo_environment["default_page"])
             print_web_search(query, max_results, page)
             text_results = search_web(duckduckgo_environment, query, max_results, page)
             add_to_llm_messages(messages, "tool", text_results, "", [], tool_call["id"])
@@ -360,18 +368,6 @@ def create_llm_messages(llm_system_messages: list[str]) -> list[DeepSeekRequestM
     return llm_messages
 
 
-def print_message(message: str, reasoning: str = "") -> None:
-    rich_console_instance = rich_console.Console(no_color=True)
-    if len(reasoning) != 0:
-        print(f"---------------------------- ASSISTANT (reasoning) -----------------------------\n\n", end="")
-        rich_console_instance.print(rich_markdown.Markdown(reasoning))
-        print("\n", end="")
-    if len(message) != 0:
-        print(f"---------------------------------- ASSISTANT -----------------------------------\n\n", end="")
-        rich_console_instance.print(rich_markdown.Markdown(message))
-        print("\n", end="")
-
-
 def rewind_conversation(llm_messages: list[DeepSeekRequestMessage]) -> None:
     while len(llm_messages) != 0 and llm_messages[-1]["role"] != "user":
         del llm_messages[-1]
@@ -379,35 +375,34 @@ def rewind_conversation(llm_messages: list[DeepSeekRequestMessage]) -> None:
         del llm_messages[-1]
 
 
+def llm_chat_loop() -> None:
+    llm_messages: list[DeepSeekRequestMessage] = []
+    ui_startup()
+    try:
+        while True:
+            user_input: str = get_user_input()
+            if user_input == "/rewind":
+                rewind_conversation(llm_messages)
+            elif user_input == "/new":
+                llm_messages = []
+            else:
+                if len(llm_messages) == 0:
+                    llm_messages = create_llm_messages(get_system_messages())
+                add_to_llm_messages(llm_messages, "user", user_input)
+                while True:
+                    llm_output, llm_output_reasoning, tool_calls = get_llm_output(ENVIRONMENT["deepseek"], llm_messages)
+                    print_assistant_message(ENVIRONMENT["terminal"], llm_output, llm_output_reasoning)
+                    add_to_llm_messages(llm_messages, "assistant", llm_output, llm_output_reasoning, tool_calls)
+                    if len(tool_calls) != 0:
+                        process_tool_calls(ENVIRONMENT["duckduckgo"], tool_calls, llm_messages)
+                    else:
+                        break
+    except KeyboardInterrupt:
+        ui_teardown()
+
+
 def main() -> None:
-    llm_messages = create_llm_messages(SYSTEM_MESSAGES)
-    print("\n", end="")
-    while True:
-        try:
-            llm_input: str = input(
-                "------------------------------------- USER -------------------------------------\n\n> "
-            ).strip()
-        except KeyboardInterrupt:
-            print("\n\n--------------------------------------------------------------------------------\n\n", end="")
-            break
-        if len(llm_input) == 0:
-            print("\n", end="")
-            continue
-        print("\n", end="")
-        if llm_input == "/rewind":
-            rewind_conversation(llm_messages)
-        elif llm_input == "/new":
-            llm_messages = []
-        else:
-            add_to_llm_messages(llm_messages, "user", llm_input)
-            while True:
-                llm_output, llm_output_reasoning, tool_calls = get_llm_output(ENVIRONMENT["deepseek"], llm_messages)
-                print_message(llm_output, llm_output_reasoning)
-                add_to_llm_messages(llm_messages, "assistant", llm_output, llm_output_reasoning, tool_calls)
-                if len(tool_calls) != 0:
-                    process_tool_calls(ENVIRONMENT["duckduckgo"], tool_calls, llm_messages)
-                else:
-                    break
+    llm_chat_loop()
 
 
 if __name__ == "__main__":
