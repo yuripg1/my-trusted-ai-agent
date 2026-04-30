@@ -79,6 +79,7 @@ class DuckDuckGoEnvironment(typing.TypedDict):
 
 
 class Environment(typing.TypedDict):
+    language: typing.Required[str]
     deepseek: typing.Required[DeepSeekEnvironment]
     duckduckgo: typing.Required[DuckDuckGoEnvironment]
     terminal: typing.Required[terminal_ui.TerminalEnvironment]
@@ -137,6 +138,7 @@ TOOLS: list[typing.Dict[str, typing.Any]] = [
 ]
 
 ENVIRONMENT: Environment = Environment(
+    language="English (US)",
     deepseek=DeepSeekEnvironment(
         api_key="",
         base_url="https://api.deepseek.com",
@@ -206,12 +208,12 @@ def get_bash_command_as_system_message(command: str) -> str:
 
 def get_system_messages() -> list[str]:
     system_messages: list[str] = [
-        "You must always reply using proper English (US) grammar",
+        f"You must always reply using {ENVIRONMENT["language"]} with proper grammar",
         "You must always reply using strict Markdown syntax with proper formatting",
-        "You are an AI assistant operating in a text-only terminal interface",
         'You are a capable of running any bash commands on the user\'s system using the "run_bash_command" function',
         'You are capable of getting a random integer number using the "get_random_integer" function',
         'You are capable of searching the web using the "web_search" function',
+        terminal_ui.get_system_instruction(),
         get_bash_command_as_system_message("getent passwd ${USER}"),
         get_bash_command_as_system_message("uname -a"),
         get_bash_command_as_system_message("cat /etc/os-release"),

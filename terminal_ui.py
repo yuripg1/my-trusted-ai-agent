@@ -6,6 +6,10 @@ class TerminalEnvironment(typing.TypedDict):
     show_reasoning: typing.Required[bool]
 
 
+def get_system_instruction() -> str:
+    return "You are an AI assistant operating in a text-only terminal interface"
+
+
 def startup() -> None:
     print("\n", end="")
 
