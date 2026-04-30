@@ -1,10 +1,12 @@
+import ddgs
+import dotenv
+import json
+import os
 import random
 import requests
 import time
 import typing
 import subprocess
-import json
-import ddgs
 
 import terminal_ui
 
@@ -61,15 +63,15 @@ class DuckDuckGoSearchResult(typing.TypedDict):
 class DeepSeekEnvironment(typing.TypedDict):
     api_key: typing.Required[str]
     base_url: typing.Required[str]
+    model: typing.Required[DeepSeekModelType]
+    thinking: typing.Required[DeepSeekThinkingType]
+    reasoning_effort: typing.Required[DeepSeekReasoningEffortType]
     max_tokens: typing.Required[int]
     tool_choice: typing.Required[DeepSeekToolChoiceType]
     tools: typing.Required[list[typing.Dict[str, typing.Any]]]
     response_format: typing.Required[DeepSeekResponseFormat]
     stream: typing.Required[bool]
     wait_after_error: typing.Required[int]
-    model: typing.Required[DeepSeekModelType]
-    thinking: typing.Required[DeepSeekThinkingType]
-    reasoning_effort: typing.Required[DeepSeekReasoningEffortType]
 
 
 class DuckDuckGoEnvironment(typing.TypedDict):
@@ -137,31 +139,35 @@ TOOLS: list[typing.Dict[str, typing.Any]] = [
     },
 ]
 
+dotenv.load_dotenv()
+
 ENVIRONMENT: Environment = Environment(
-    language="English (US)",
+    language=os.getenv("LANGUAGE", ""),
     deepseek=DeepSeekEnvironment(
-        api_key="",
-        base_url="https://api.deepseek.com",
-        max_tokens=393216,
+        api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+        base_url=os.getenv("DEEPSEEK_BASE_URL", ""),
+        model=typing.cast(DeepSeekModelType, os.getenv("DEEPSEEK_MODEL", "")),
+        thinking=typing.cast(DeepSeekThinkingType, os.getenv("DEEPSEEK_THINKING", "")),
+        reasoning_effort=typing.cast(DeepSeekReasoningEffortType, os.getenv("DEEPSEEK_REASONING_EFFORT", "")),
+        max_tokens=int(os.getenv("DEEPSEEK_MAX_TOKENS", "")),
         tool_choice="auto",
         tools=TOOLS,
         response_format="text",
         stream=False,
         wait_after_error=2,
-        model="deepseek-v4-flash",
-        # model="deepseek-v4-pro",
-        thinking="disabled",
-        # thinking="enabled",
-        reasoning_effort="high",
-        # reasoning_effort="max",
     ),
     duckduckgo=DuckDuckGoEnvironment(
-        safesearch="off",
+        safesearch=typing.cast(DuckDuckGoSafeSearchType, os.getenv("DUCKDUCKGO_SAFESEARCH", "")),
         default_max_results=10,
         default_page=1,
     ),
-    terminal=terminal_ui.TerminalEnvironment(show_reasoning=True),
+    terminal=terminal_ui.TerminalEnvironment(
+        show_reasoning=(os.getenv("TERMINAL_SHOW_REASONING", "").lower() in ("true", "1", "yes")),
+    ),
 )
+
+if len(ENVIRONMENT["deepseek"]["api_key"]) == 0:
+    raise ValueError("DEEPSEEK_API_KEY is not set")
 
 
 def ui_startup() -> None:
