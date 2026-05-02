@@ -36,14 +36,16 @@ def get_user_input() -> str:
     return "\n".join(user_input_lines).strip()
 
 
-def print_assistant_message(terminal_environment: TerminalEnvironment, message: str, reasoning: str = "") -> None:
+def print_assistant_message(
+    terminal_environment: TerminalEnvironment, total_tokens: int, message: str, reasoning: str = ""
+) -> None:
     rich_console_instance = rich_console.Console(no_color=True)
     if terminal_environment["show_reasoning"] and len(reasoning) != 0:
-        print(f"---------------------------- ASSISTANT (reasoning) -----------------------------\n\n", end="")
+        print(f"----------------------- ASSISTANT (reasoning) ------------------------ ({total_tokens:>7})\n\n", end="")
         rich_console_instance.print(rich_markdown.Markdown(reasoning))
         print("\n", end="")
     if len(message) != 0:
-        print(f"---------------------------------- ASSISTANT -----------------------------------\n\n", end="")
+        print(f"----------------------------- ASSISTANT ------------------------------ ({total_tokens:>7})\n\n", end="")
         rich_console_instance.print(rich_markdown.Markdown(message))
         print("\n", end="")
 

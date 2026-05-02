@@ -183,9 +183,9 @@ def get_user_input() -> str:
 
 
 def print_assistant_message(
-    terminal_environment: terminal_ui.TerminalEnvironment, message: str, reasoning: str = ""
+    terminal_environment: terminal_ui.TerminalEnvironment, total_tokens: int, message: str, reasoning: str = ""
 ) -> None:
-    terminal_ui.print_assistant_message(terminal_environment, message, reasoning)
+    terminal_ui.print_assistant_message(terminal_environment, total_tokens, message, reasoning)
 
 
 def prompt_for_bash_command_permission(command: str) -> bool:
@@ -231,7 +231,7 @@ def get_system_messages() -> list[str]:
 
 def get_llm_output(
     deepseek_environment: DeepSeekEnvironment, llm_messages: list[DeepSeekRequestMessage]
-) -> tuple[str, str, list[ToolCall]]:
+) -> tuple[str, str, list[ToolCall], int]:
     headers: typing.Mapping[str, str] = {
         "Authorization": f"Bearer {deepseek_environment["api_key"]}",
         "Content-Type": "application/json",
@@ -257,6 +257,7 @@ def get_llm_output(
         print(response.status_code)
         print(json.dumps(response.json(), indent=2))
     data = response.json()
+    total_tokens: int = int(data["usage"]["total_tokens"])
     message = data["choices"][0]["message"]
     content: str = message.get("content", "").strip()
     reasoning_content: str = message.get("reasoning_content", "").strip()
@@ -272,7 +273,7 @@ def get_llm_output(
                 ),
             )
         )
-    return content, reasoning_content, tool_calls
+    return content, reasoning_content, tool_calls, total_tokens
 
 
 def add_to_llm_messages(
@@ -398,8 +399,10 @@ def llm_chat_loop() -> None:
                     llm_messages = create_llm_messages(get_system_messages())
                 add_to_llm_messages(llm_messages, "user", user_input)
                 while True:
-                    llm_output, llm_output_reasoning, tool_calls = get_llm_output(ENVIRONMENT["deepseek"], llm_messages)
-                    print_assistant_message(ENVIRONMENT["terminal"], llm_output, llm_output_reasoning)
+                    llm_output, llm_output_reasoning, tool_calls, total_tokens = get_llm_output(
+                        ENVIRONMENT["deepseek"], llm_messages
+                    )
+                    print_assistant_message(ENVIRONMENT["terminal"], total_tokens, llm_output, llm_output_reasoning)
                     add_to_llm_messages(llm_messages, "assistant", llm_output, llm_output_reasoning, tool_calls)
                     if len(tool_calls) != 0:
                         process_tool_calls(ENVIRONMENT["duckduckgo"], tool_calls, llm_messages)
