@@ -5,6 +5,7 @@ import os
 import random
 import requests
 import time
+import trafilatura
 import typing
 import subprocess
 
@@ -137,6 +138,19 @@ TOOLS: list[typing.Dict[str, typing.Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_fetch",
+            "description": "Fetch and extract the main text content from a web page URL",
+            "parameters": {
+                "type": "object",
+                "properties": {"url": {"type": "string", "description": "The URL of the web page to fetch and read"}},
+                "required": ["url"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 dotenv.load_dotenv()
@@ -200,6 +214,10 @@ def print_web_search(query: str, max_results: int, page: int) -> None:
     terminal_ui.print_web_search(query, max_results, page)
 
 
+def print_web_fetch(url: str) -> None:
+    terminal_ui.print_web_fetch(url)
+
+
 def execute_bash_command(permission_granted: bool, command: str) -> tuple[str, str, int]:
     if not permission_granted:
         return "", "", 0
@@ -207,18 +225,38 @@ def execute_bash_command(permission_granted: bool, command: str) -> tuple[str, s
     return result.stdout, result.stderr, result.returncode
 
 
+def get_formatted_bash_command_output(
+    command: str, permission_granted: bool, stdout: str, stderr: str, returncode: int
+) -> str:
+    if not permission_granted:
+        return "Bash command execution manually denied by the user"
+    result_lines: list[str] = []
+    trimmed_command = command.strip()
+    result_lines.append(f"<returncode>{returncode}</returncode>")
+    result_lines.append(f"<command>\n{trimmed_command}\n</command>")
+    trimmed_stdout = stdout.strip()
+    if len(trimmed_stdout) != 0:
+        result_lines.append(f"<stdout>\n{trimmed_stdout}\n</stdout>")
+    trimmed_stderr = stderr.strip()
+    if len(trimmed_stderr) != 0:
+        result_lines.append(f"<stderr>\n{trimmed_stderr}\n</stderr>")
+    joined_command_result: str = "\n".join(result_lines)
+    return f"<command_execution>\n{joined_command_result}\n</command_execution>"
+
+
 def get_bash_command_as_system_message(command: str) -> str:
     stdout, stderr, returncode = execute_bash_command(True, command)
-    return f"$ {command}\n\n{get_formatted_bash_command_output(True, stdout, stderr, returncode)}"
+    return get_formatted_bash_command_output(command, True, stdout, stderr, returncode)
 
 
 def get_system_messages() -> list[str]:
     system_messages: list[str] = [
         f"You must always reply using {ENVIRONMENT["language"]} with proper grammar",
         "You must always reply using strict Markdown syntax with proper formatting",
-        'You are a capable of running any bash commands on the user\'s system using the "run_bash_command" function',
+        'You are capable of running any bash commands on the user\'s system using the "run_bash_command" function',
         'You are capable of getting a random integer number using the "get_random_integer" function',
         'You are capable of searching the web using the "web_search" function',
+        'You are capable of fetching web pages using the "web_fetch" function',
         terminal_ui.get_system_instruction(),
         get_bash_command_as_system_message("getent passwd ${USER}"),
         get_bash_command_as_system_message("uname -a"),
@@ -287,12 +325,12 @@ def add_to_llm_messages(
     trimmed_content: str = content.strip()
     trimmed_reasoning_content: str = reasoning_content.strip()
     if role in ["assistant", "system", "user"]:
-        new_assistant_message: DeepSeekRequestMessage = {"role": role, "content": trimmed_content}
+        new_generic_message: DeepSeekRequestMessage = {"role": role, "content": trimmed_content}
         if len(trimmed_reasoning_content) != 0:
-            new_assistant_message["reasoning_content"] = trimmed_reasoning_content
+            new_generic_message["reasoning_content"] = trimmed_reasoning_content
         if len(tool_calls) != 0:
-            new_assistant_message["tool_calls"] = tool_calls
-        llm_messages.append(new_assistant_message)
+            new_generic_message["tool_calls"] = tool_calls
+        llm_messages.append(new_generic_message)
     elif role == "tool":
         new_tool_message: DeepSeekRequestMessage = {
             "role": role,
@@ -300,21 +338,6 @@ def add_to_llm_messages(
             "tool_call_id": tool_call_id,
         }
         llm_messages.append(new_tool_message)
-
-
-def get_formatted_bash_command_output(permission_granted: bool, stdout: str, stderr: str, returncode: int) -> str:
-    formatted_command_output: str = ""
-    if not permission_granted:
-        return "Bash command execution manually denied by the user"
-    trimmed_stdout = stdout.strip()
-    if len(trimmed_stdout) != 0:
-        formatted_command_output += f"--- STDOUT ---\n\n{trimmed_stdout}\n\n"
-    trimmed_stderr = stderr.strip()
-    if len(trimmed_stderr) != 0:
-        formatted_command_output += f"--- STDERR ---\n\n{trimmed_stderr}\n\n"
-    if returncode != 0:
-        formatted_command_output += f"--- RETURNCODE ---\n\n{returncode}\n\n"
-    return formatted_command_output.strip()
 
 
 def search_web(duckduckgo_environment: DuckDuckGoEnvironment, query: str, max_results: int, page: int) -> str:
@@ -334,8 +357,22 @@ def search_web(duckduckgo_environment: DuckDuckGoEnvironment, query: str, max_re
         )
     text_results: list[str] = []
     for search_result in search_results:
-        text_results.append(f"{search_result["title"]}\n\n{search_result["href"]}\n\n{search_result["body"]}")
-    return "\n\n---\n\n".join(text_results)
+        text_results.append(
+            f"<search_result>\n<title>{search_result["title"]}</title>\n<href>{search_result["href"]}</href>\n<body>\n{search_result["body"]}\n</body>\n</search_result>"
+        )
+    joined_search_results: str = "\n".join(text_results)
+    return f'<search_results query="{query}" max_results="{max_results}" page="{page}">\n{joined_search_results}\n</search_results>'
+
+
+def fetch_web_page(url: str) -> str:
+    downloaded = trafilatura.fetch_url(url)
+    if downloaded is None:
+        return f'Could not fetch content from "{url}"'
+    result = trafilatura.extract(downloaded, output_format="markdown", with_metadata=False)
+    trimmed_result: str = result.strip() if result is not None else ""
+    if len(trimmed_result) == 0:
+        return f'No extractable text content found at "{url}"'
+    return f'<fetched_content url="{url}">\n{trimmed_result}\n</fetched_content>'
 
 
 def process_tool_calls(
@@ -348,7 +385,7 @@ def process_tool_calls(
             permission_granted: bool = prompt_for_bash_command_permission(command)
             stdout, stderr, returncode = execute_bash_command(permission_granted, command)
             formatted_command_output: str = get_formatted_bash_command_output(
-                permission_granted, stdout, stderr, returncode
+                command, permission_granted, stdout, stderr, returncode
             )
             add_to_llm_messages(messages, "tool", formatted_command_output, "", [], tool_call["id"])
         elif tool_call["function"]["name"] == "get_random_integer":
@@ -356,16 +393,25 @@ def process_tool_calls(
             min_integer: int = function_arguments["min"]
             max_integer: int = function_arguments["max"]
             print_random_integer(min_integer, max_integer)
-            random_integer = random.randint(min_integer, max_integer)
-            add_to_llm_messages(messages, "tool", str(random_integer), "", [], tool_call["id"])
+            random_integer: int = random.randint(min_integer, max_integer)
+            text_result: str = (
+                f'<random_integer min="{min_integer}" max="{max_integer}">{random_integer}</random_integer>'
+            )
+            add_to_llm_messages(messages, "tool", text_result, "", [], tool_call["id"])
         elif tool_call["function"]["name"] == "web_search":
             function_arguments = json.loads(tool_call["function"]["arguments"])
             query: str = function_arguments["query"]
             max_results: int = function_arguments.get("max_results", duckduckgo_environment["default_max_results"])
             page: int = function_arguments.get("page", duckduckgo_environment["default_page"])
             print_web_search(query, max_results, page)
-            text_results = search_web(duckduckgo_environment, query, max_results, page)
+            text_results: str = search_web(duckduckgo_environment, query, max_results, page)
             add_to_llm_messages(messages, "tool", text_results, "", [], tool_call["id"])
+        elif tool_call["function"]["name"] == "web_fetch":
+            function_arguments = json.loads(tool_call["function"]["arguments"])
+            url: str = function_arguments["url"]
+            print_web_fetch(url)
+            text_content: str = fetch_web_page(url)
+            add_to_llm_messages(messages, "tool", text_content, "", [], tool_call["id"])
 
 
 def create_llm_messages(llm_system_messages: list[str]) -> list[DeepSeekRequestMessage]:

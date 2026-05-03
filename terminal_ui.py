@@ -41,11 +41,11 @@ def print_assistant_message(
 ) -> None:
     rich_console_instance = rich_console.Console(no_color=True)
     if terminal_environment["show_reasoning"] and len(reasoning) != 0:
-        print(f"----------------------- ASSISTANT (reasoning) ------------------------ ({total_tokens:>7})\n\n", end="")
+        print(f"-------------------- ASSISTANT (reasoning) -------------------- ({total_tokens:>7} tokens)\n\n", end="")
         rich_console_instance.print(rich_markdown.Markdown(reasoning))
         print("\n", end="")
     if len(message) != 0:
-        print(f"----------------------------- ASSISTANT ------------------------------ ({total_tokens:>7})\n\n", end="")
+        print(f"-------------------------- ASSISTANT -------------------------- ({total_tokens:>7} tokens)\n\n", end="")
         rich_console_instance.print(rich_markdown.Markdown(message))
         print("\n", end="")
 
@@ -65,7 +65,7 @@ def prompt_for_bash_command_permission(command: str) -> bool:
 
 def print_random_integer(min_integer: int, max_integer: int) -> None:
     print(
-        f'------------------------------------- TOOL -------------------------------------\n\nPicking a random integer between "{min_integer}" (inclusive) and "{max_integer}" (inclusive)\n\n',
+        f'------------------------------------- TOOL -------------------------------------\n\nGenerating a random integer between "{min_integer}" (inclusive) and "{max_integer}" (inclusive)\n\n',
         end="",
     )
 
@@ -73,5 +73,12 @@ def print_random_integer(min_integer: int, max_integer: int) -> None:
 def print_web_search(query: str, max_results: int, page: int) -> None:
     print(
         f'------------------------------------- TOOL -------------------------------------\n\nSearching the web for "{query}" ({max_results} results - page {page})\n\n',
+        end="",
+    )
+
+
+def print_web_fetch(url: str) -> None:
+    print(
+        f'------------------------------------- TOOL -------------------------------------\n\nFetching content from "{url}"\n\n',
         end="",
     )
