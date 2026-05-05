@@ -119,7 +119,7 @@ class DeepSeekAi:
         if len(messages) != 0:
             del messages[-1]
 
-    def request_reply(self, messages: list[DeepSeekMessage]) -> None:
+    def request_reply(self, messages: list[DeepSeekMessage]) -> int:
         headers: Mapping[str, str] = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -145,6 +145,7 @@ class DeepSeekAi:
             print(response.status_code)
             print(dumps(response.json(), indent=2))
         data = response.json()
+        total_tokens: int = int(data["usage"]["total_tokens"])
         message = data["choices"][0]["message"]
         content: str = message.get("content", "").strip()
         reasoning_content: str = message.get("reasoning_content", "").strip()
@@ -161,11 +162,11 @@ class DeepSeekAi:
                 )
             )
         self.add_to_messages(messages, "assistant", content, reasoning_content, tool_calls)
+        return total_tokens
 
     def decode_tool_call(self, tool_call: DeepSeekToolCall) -> FunctionCall | None:
         if tool_call["function"]["name"] == "run_bash_command":
             function_arguments = loads(tool_call["function"]["arguments"])
-            permission_request_message: str = f"$ {function_arguments["command"]}"
             return FunctionCall(
                 function_name="run_bash_command",
                 info=FunctionCallInfo(tool_call_id=tool_call["id"]),

@@ -71,9 +71,12 @@ class Ai:
         if self.provider == "deepseek" and self.deepseek_ai is not None:
             self.deepseek_ai.rewind_message(deepseek_messages)
 
-    def request_reply(self, deepseek_messages: list[DeepSeekMessage] = []):
+    def request_reply(self, deepseek_messages: list[DeepSeekMessage] = []) -> int:
         if self.provider == "deepseek" and self.deepseek_ai is not None:
-            self.deepseek_ai.request_reply(deepseek_messages)
+            total_tokens: int = self.deepseek_ai.request_reply(deepseek_messages)
+            return total_tokens
+        else:
+            return 0
 
     def decode_tool_call(self, deepseek_tool_call: DeepSeekToolCall | None = None) -> FunctionCall | None:
         if self.provider == "deepseek" and self.deepseek_ai is not None and deepseek_tool_call is not None:

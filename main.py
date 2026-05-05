@@ -55,12 +55,12 @@ def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui) -> None:
                         deepseek_messages=deepseek_messages, deepseek_role="user", deepseek_content=user_input
                     )
                     while True:
-                        ai.request_reply(deepseek_messages=deepseek_messages)
+                        total_tokens: int = ai.request_reply(deepseek_messages=deepseek_messages)
                         assistant_message = deepseek_messages[-1]
                         reasoning_content: str = ""
                         if "reasoning_content" in assistant_message:
                             reasoning_content = assistant_message["reasoning_content"]
-                        ui.display_assistant_message(0, assistant_message["content"], reasoning_content)
+                        ui.display_assistant_message(total_tokens, assistant_message["content"], reasoning_content)
                         if "tool_calls" not in assistant_message or len(assistant_message["tool_calls"]) == 0:
                             break
                         deepseek_tool_calls: list[DeepSeekToolCall] = assistant_message["tool_calls"]
