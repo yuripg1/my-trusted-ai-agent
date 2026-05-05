@@ -81,7 +81,7 @@ class DeepSeekAi:
         self.tool_choice = "auto"
         self.wait_after_error = 2
 
-    def add_to_messages(
+    def __add_to_messages(
         self,
         messages: list[DeepSeekMessage],
         role: DeepSeekRoleType,
@@ -107,17 +107,52 @@ class DeepSeekAi:
             }
             messages.append(new_tool_message)
 
-    def initialize_messages(self, system_messages: list[str], messages: list[DeepSeekMessage]) -> None:
-        for system_message in system_messages:
-            trimmed_system_message: str = system_message.strip()
-            if len(trimmed_system_message) != 0:
-                self.add_to_messages(messages, "system", trimmed_system_message)
+    def create_messages(self) -> list[DeepSeekMessage]:
+        messages: list[DeepSeekMessage] = []
+        return messages
+
+    def create_tool_calls(self) -> list[DeepSeekToolCall]:
+        tool_calls: list[DeepSeekToolCall] = []
+        return tool_calls
 
     def rewind_message(self, messages: list[DeepSeekMessage]) -> None:
         while len(messages) != 0 and messages[-1]["role"] != "user":
             del messages[-1]
         if len(messages) != 0:
             del messages[-1]
+
+    def is_messages_empty(self, messages: list[DeepSeekMessage]) -> bool:
+        return len(messages) == 0
+
+    def get_latest_message(self, messages: list[DeepSeekMessage]) -> tuple[str, str]:
+        latest_message_object: DeepSeekMessage = messages[-1]
+        message: str = latest_message_object["content"]
+        reasoning: str = ""
+        if "reasoning_content" in latest_message_object:
+            reasoning = latest_message_object["reasoning_content"]
+        return message, reasoning
+
+    def initialize_messages(self, messages: list[DeepSeekMessage], system_messages: list[str]) -> None:
+        for system_message in system_messages:
+            trimmed_system_message: str = system_message.strip()
+            if len(trimmed_system_message) != 0:
+                self.__add_to_messages(messages, "system", trimmed_system_message)
+
+    def add_user_message(self, messages: list[DeepSeekMessage], user_message: str) -> bool:
+        trimmed_user_message: str = user_message.strip()
+        if len(trimmed_user_message) != 0:
+            self.__add_to_messages(messages, "user", trimmed_user_message)
+            return True
+        else:
+            return False
+
+    def add_tool_call(self, messages: list[DeepSeekMessage], function_call: FunctionCall, output: str) -> bool:
+        trimmed_output: str = output.strip()
+        if len(trimmed_output) != 0:
+            self.__add_to_messages(messages, "tool", trimmed_output, "", [], function_call["info"]["tool_call_id"])
+            return True
+        else:
+            return False
 
     def request_reply(self, messages: list[DeepSeekMessage]) -> int:
         headers: Mapping[str, str] = {
@@ -161,41 +196,44 @@ class DeepSeekAi:
                     ),
                 )
             )
-        self.add_to_messages(messages, "assistant", content, reasoning_content, tool_calls)
+        self.__add_to_messages(messages, "assistant", content, reasoning_content, tool_calls)
         return total_tokens
 
-    def decode_tool_call(self, tool_call: DeepSeekToolCall) -> FunctionCall | None:
-        if tool_call["function"]["name"] == "run_bash_command":
-            function_arguments = loads(tool_call["function"]["arguments"])
-            return FunctionCall(
-                function_name="run_bash_command",
-                info=FunctionCallInfo(tool_call_id=tool_call["id"]),
-                arguments=FunctionCallArguments(command=function_arguments["command"]),
-            )
-        elif tool_call["function"]["name"] == "get_random_integer":
-            function_arguments = loads(tool_call["function"]["arguments"])
-            return FunctionCall(
-                function_name="get_random_integer",
-                info=FunctionCallInfo(tool_call_id=tool_call["id"]),
-                arguments=FunctionCallArguments(min=function_arguments["min"], max=function_arguments["max"]),
-            )
-        elif tool_call["function"]["name"] == "web_search":
-            function_arguments = loads(tool_call["function"]["arguments"])
-            return FunctionCall(
-                function_name="web_search",
-                info=FunctionCallInfo(tool_call_id=tool_call["id"]),
-                arguments=FunctionCallArguments(
-                    query=function_arguments["query"],
-                    max_results=function_arguments["max_results"],
-                    page=function_arguments["page"],
-                ),
-            )
-        elif tool_call["function"]["name"] == "web_fetch":
-            function_arguments = loads(tool_call["function"]["arguments"])
-            return FunctionCall(
-                function_name="web_fetch",
-                info=FunctionCallInfo(tool_call_id=tool_call["id"]),
-                arguments=FunctionCallArguments(url=function_arguments["url"]),
-            )
-        else:
-            return None
+    def get_function_calls_from_latest_message(self, messages: list[DeepSeekMessage]) -> list[FunctionCall]:
+        function_calls: list[FunctionCall] = []
+        latest_message_object: DeepSeekMessage = messages[-1]
+        if "tool_calls" in latest_message_object:
+            for tool_call in latest_message_object["tool_calls"]:
+                if tool_call["function"]["name"] == "run_bash_command":
+                    function_arguments = loads(tool_call["function"]["arguments"])
+                    function_calls.append(FunctionCall(
+                        function_name="run_bash_command",
+                        info=FunctionCallInfo(tool_call_id=tool_call["id"]),
+                        arguments=FunctionCallArguments(command=function_arguments["command"]),
+                    ))
+                elif tool_call["function"]["name"] == "get_random_integer":
+                    function_arguments = loads(tool_call["function"]["arguments"])
+                    function_calls.append(FunctionCall(
+                        function_name="get_random_integer",
+                        info=FunctionCallInfo(tool_call_id=tool_call["id"]),
+                        arguments=FunctionCallArguments(min=function_arguments["min"], max=function_arguments["max"]),
+                    ))
+                elif tool_call["function"]["name"] == "web_search":
+                    function_arguments = loads(tool_call["function"]["arguments"])
+                    function_calls.append(FunctionCall(
+                        function_name="web_search",
+                        info=FunctionCallInfo(tool_call_id=tool_call["id"]),
+                        arguments=FunctionCallArguments(
+                            query=function_arguments["query"],
+                            max_results=function_arguments["max_results"],
+                            page=function_arguments["page"],
+                        ),
+                    ))
+                elif tool_call["function"]["name"] == "web_fetch":
+                    function_arguments = loads(tool_call["function"]["arguments"])
+                    function_calls.append(FunctionCall(
+                        function_name="web_fetch",
+                        info=FunctionCallInfo(tool_call_id=tool_call["id"]),
+                        arguments=FunctionCallArguments(url=function_arguments["url"]),
+                    ))
+        return function_calls
