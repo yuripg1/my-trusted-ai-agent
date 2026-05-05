@@ -1,10 +1,13 @@
-from typing import Any, Dict, Literal
+from typing import Any, cast, Dict, Literal
 
 from ai.deepseek import (
     DeepSeekAi,
-    DeepSeekToolCall,
-    DeepSeekRoleType,
     DeepSeekMessage,
+    DeepSeekModelType,
+    DeepSeekReasoningEffortType,
+    DeepSeekRoleType,
+    DeepSeekThinkingType,
+    DeepSeekToolCall,
 )
 from environment import Environment
 from function import FunctionCall
@@ -17,7 +20,7 @@ class Ai:
     deepseek_ai: DeepSeekAi | None
 
     def __init__(self, environment: Environment) -> None:
-        self.provider = environment.ai_provider
+        self.provider = cast(AiProviderType, environment.ai_provider)
         if (
             self.provider == "deepseek"
             and environment.deepseek_model is not None
@@ -27,9 +30,9 @@ class Ai:
             self.deepseek_ai = DeepSeekAi(
                 api_key=environment.deepseek_api_key,
                 base_url=environment.deepseek_base_url,
-                model=environment.deepseek_model,
-                thinking=environment.deepseek_thinking,
-                reasoning_effort=environment.deepseek_reasoning_effort,
+                model=cast(DeepSeekModelType, environment.deepseek_model),
+                thinking=cast(DeepSeekThinkingType, environment.deepseek_thinking),
+                reasoning_effort=cast(DeepSeekReasoningEffortType, environment.deepseek_reasoning_effort),
                 max_tokens=environment.deepseek_max_tokens,
             )
 
@@ -70,16 +73,10 @@ class Ai:
 
     def request_reply(self, deepseek_messages: list[DeepSeekMessage] = []):
         if self.provider == "deepseek" and self.deepseek_ai is not None:
-            self.deepseek_ai.rewind_message(deepseek_messages)
+            self.deepseek_ai.request_reply(deepseek_messages)
 
     def decode_tool_call(self, deepseek_tool_call: DeepSeekToolCall | None = None) -> FunctionCall | None:
-        if self.provider == "deepseek" and self.deepseek_ai is not None:
+        if self.provider == "deepseek" and self.deepseek_ai is not None and deepseek_tool_call is not None:
             return self.deepseek_ai.decode_tool_call(tool_call=deepseek_tool_call)
         else:
             return None
-
-    def get_deepseek_tools_declaration(self) -> list[Dict[str, Any]]:
-        if self.provider == "deepseek" and self.deepseek_ai is not None:
-            return self.deepseek_ai.get_tools_declaration()
-        else:
-            return []

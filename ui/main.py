@@ -1,7 +1,7 @@
-from typing import Literal
+from typing import cast, Literal
 
 from environment import Environment
-from terminal import TerminalUi
+from ui.terminal import TerminalUi
 
 UiChannelType = Literal["terminal"]
 
@@ -11,9 +11,9 @@ class Ui:
     terminal_ui: TerminalUi | None
 
     def __init__(self, environment: Environment) -> None:
-        self.channel = environment.ui_channel
+        self.channel = cast(UiChannelType, environment.ui_channel)
         if self.channel == "terminal":
-            self.terminal = TerminalUi(show_reasoning=environment.show_reasoning)
+            self.terminal_ui = TerminalUi(show_reasoning=environment.show_reasoning)
 
     def get_system_instruction(self) -> str:
         if self.channel == "terminal" and self.terminal_ui is not None:

@@ -4,7 +4,7 @@ from time import sleep
 from typing import Any, Dict, Literal, Mapping, NotRequired, Required, TypedDict
 
 from ai.deepseek_tools import DEEPSEEK_TOOLS
-from function import FunctionCallArguments,FunctionCallInfo,FunctionCall
+from function import FunctionCallArguments, FunctionCallInfo, FunctionCall
 
 DeepSeekFunctionType = Literal["function"]
 DeepSeekRoleType = Literal["assistant", "tool", "user", "system"]
@@ -14,14 +14,17 @@ DeepSeekThinkingType = Literal["enabled", "disabled"]
 DeepSeekReasoningEffortType = Literal["high", "max"]
 DeepSeekResponseFormat = Literal["text", "json_object"]
 
+
 class DeepSeekToolCallFunction(TypedDict):
     name: Required[str]
     arguments: Required[str]
+
 
 class DeepSeekToolCall(TypedDict):
     id: Required[str]
     type: Required[DeepSeekFunctionType]
     function: Required[DeepSeekToolCallFunction]
+
 
 class DeepSeekMessage(TypedDict):
     role: Required[DeepSeekRoleType]
@@ -30,8 +33,10 @@ class DeepSeekMessage(TypedDict):
     tool_calls: NotRequired[list[DeepSeekToolCall]]
     tool_call_id: NotRequired[str]
 
+
 class DeepSeekRequestThinking(TypedDict):
     type: Required[DeepSeekThinkingType]
+
 
 class DeepSeekRequest(TypedDict):
     model: Required[DeepSeekModelType]
@@ -42,6 +47,7 @@ class DeepSeekRequest(TypedDict):
     stream: Required[bool]
     tools: Required[list[Dict[str, Any]]]
     tool_choice: Required[str]
+
 
 class DeepSeekAi:
     api_key: str
@@ -102,7 +108,6 @@ class DeepSeekAi:
             messages.append(new_tool_message)
 
     def initialize_messages(self, system_messages: list[str], messages: list[DeepSeekMessage]) -> None:
-        messages = []
         for system_message in system_messages:
             trimmed_system_message: str = system_message.strip()
             if len(trimmed_system_message) != 0:
@@ -146,25 +151,50 @@ class DeepSeekAi:
         tool_calls: list[DeepSeekToolCall] = []
         message_tool_calls = message.get("tool_calls", [])
         for message_tool_call in message_tool_calls:
-            tool_calls.append(DeepSeekToolCall(id=message_tool_call["id"],type=message_tool_call["type"],function=DeepSeekToolCallFunction(name=message_tool_call["function"]["name"], arguments=message_tool_call["function"]["arguments"])))
-        self.add_to_messages(messages,"assistant",content,reasoning_content,tool_calls)
+            tool_calls.append(
+                DeepSeekToolCall(
+                    id=message_tool_call["id"],
+                    type=message_tool_call["type"],
+                    function=DeepSeekToolCallFunction(
+                        name=message_tool_call["function"]["name"], arguments=message_tool_call["function"]["arguments"]
+                    ),
+                )
+            )
+        self.add_to_messages(messages, "assistant", content, reasoning_content, tool_calls)
 
     def decode_tool_call(self, tool_call: DeepSeekToolCall) -> FunctionCall | None:
         if tool_call["function"]["name"] == "run_bash_command":
             function_arguments = loads(tool_call["function"]["arguments"])
-            permission_request_message:str = f"$ {function_arguments["command"]}"
-            return FunctionCall(function_name="run_bash_command",info=FunctionCallInfo(tool_call_id=tool_call["id"]),arguments=FunctionCallArguments(command=function_arguments["command"]))
+            permission_request_message: str = f"$ {function_arguments["command"]}"
+            return FunctionCall(
+                function_name="run_bash_command",
+                info=FunctionCallInfo(tool_call_id=tool_call["id"]),
+                arguments=FunctionCallArguments(command=function_arguments["command"]),
+            )
         elif tool_call["function"]["name"] == "get_random_integer":
             function_arguments = loads(tool_call["function"]["arguments"])
-            return FunctionCall(function_name="get_random_integer",info=FunctionCallInfo(tool_call_id=tool_call["id"]),arguments=FunctionCallArguments(min=function_arguments["min"],max=function_arguments["max"]))
+            return FunctionCall(
+                function_name="get_random_integer",
+                info=FunctionCallInfo(tool_call_id=tool_call["id"]),
+                arguments=FunctionCallArguments(min=function_arguments["min"], max=function_arguments["max"]),
+            )
         elif tool_call["function"]["name"] == "web_search":
             function_arguments = loads(tool_call["function"]["arguments"])
-            return FunctionCall(function_name="web_search",info=FunctionCallInfo(tool_call_id=tool_call["id"]),arguments=FunctionCallArguments(query=function_arguments["query"],max_results=function_arguments["max_results"],page=function_arguments["page"]))
+            return FunctionCall(
+                function_name="web_search",
+                info=FunctionCallInfo(tool_call_id=tool_call["id"]),
+                arguments=FunctionCallArguments(
+                    query=function_arguments["query"],
+                    max_results=function_arguments["max_results"],
+                    page=function_arguments["page"],
+                ),
+            )
         elif tool_call["function"]["name"] == "web_fetch":
             function_arguments = loads(tool_call["function"]["arguments"])
-            return FunctionCall(function_name="web_fetch",info=FunctionCallInfo(tool_call_id=tool_call["id"]),arguments=FunctionCallArguments(url=function_arguments["url"]))
+            return FunctionCall(
+                function_name="web_fetch",
+                info=FunctionCallInfo(tool_call_id=tool_call["id"]),
+                arguments=FunctionCallArguments(url=function_arguments["url"]),
+            )
         else:
             return None
-
-    def get_tools_declaration(self) -> list[Dict[str, Any]]:
-        return

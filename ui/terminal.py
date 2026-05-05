@@ -3,6 +3,7 @@ from rich.markdown import Markdown
 
 from function import FunctionCall
 
+
 class TerminalUi:
     show_reasoning: bool
 
@@ -53,7 +54,10 @@ class TerminalUi:
             print("\n", end="")
 
     def display_tool_call_message(self, function_call_message: str, function_call_permission: bool) -> bool:
-        print(f"------------------------------------- TOOL -------------------------------------\n\n{function_call_message}\n\n",end="")
+        print(
+            f"------------------------------------- TOOL -------------------------------------\n\n{function_call_message}\n\n",
+            end="",
+        )
         if function_call_permission:
             return True
         try:

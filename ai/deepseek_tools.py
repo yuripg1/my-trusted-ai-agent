@@ -39,10 +39,10 @@ DEEPSEEK_TOOLS: list[Dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
-                    "max_results": {"type": "integer","description": "Maximum number of results per page (max: 10)"},
+                    "max_results": {"type": "integer", "description": "Maximum number of results per page (max: 5)"},
                     "page": {"type": "integer", "description": "Page number of the search results"},
                 },
-                "required": ["query","max_results","page"],
+                "required": ["query", "max_results", "page"],
                 "additionalProperties": False,
             },
         },
@@ -60,4 +60,4 @@ DEEPSEEK_TOOLS: list[Dict[str, Any]] = [
             },
         },
     },
-    ]
+]
