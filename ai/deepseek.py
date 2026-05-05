@@ -4,7 +4,7 @@ from time import sleep
 from typing import Any, Dict, Literal, Mapping, NotRequired, Required, TypedDict
 
 from ai.deepseek_tools import DEEPSEEK_TOOLS
-from function import FunctionCallArguments, FunctionCallInfo, FunctionCall
+from tool_calling import ToolCall, ToolCallArguments
 
 DeepSeekFunctionType = Literal["function"]
 DeepSeekRoleType = Literal["assistant", "tool", "user", "system"]
@@ -146,10 +146,10 @@ class DeepSeekAi:
         else:
             return False
 
-    def add_tool_call(self, messages: list[DeepSeekMessage], function_call: FunctionCall, output: str) -> bool:
+    def add_tool_call(self, messages: list[DeepSeekMessage], tool_call: ToolCall, output: str) -> bool:
         trimmed_output: str = output.strip()
         if len(trimmed_output) != 0:
-            self.__add_to_messages(messages, "tool", trimmed_output, "", [], function_call["info"]["tool_call_id"])
+            self.__add_to_messages(messages, "tool", trimmed_output, "", [], tool_call["id"])
             return True
         else:
             return False
@@ -199,41 +199,49 @@ class DeepSeekAi:
         self.__add_to_messages(messages, "assistant", content, reasoning_content, tool_calls)
         return total_tokens
 
-    def get_function_calls_from_latest_message(self, messages: list[DeepSeekMessage]) -> list[FunctionCall]:
-        function_calls: list[FunctionCall] = []
+    def get_tool_calls_from_latest_message(self, messages: list[DeepSeekMessage]) -> list[ToolCall]:
+        tool_calls: list[ToolCall] = []
         latest_message_object: DeepSeekMessage = messages[-1]
         if "tool_calls" in latest_message_object:
             for tool_call in latest_message_object["tool_calls"]:
                 if tool_call["function"]["name"] == "run_bash_command":
-                    function_arguments = loads(tool_call["function"]["arguments"])
-                    function_calls.append(FunctionCall(
-                        function_name="run_bash_command",
-                        info=FunctionCallInfo(tool_call_id=tool_call["id"]),
-                        arguments=FunctionCallArguments(command=function_arguments["command"]),
-                    ))
+                    tool_call_arguments = loads(tool_call["function"]["arguments"])
+                    tool_calls.append(
+                        ToolCall(
+                            id=tool_call["id"],
+                            function_name="run_bash_command",
+                            arguments=ToolCallArguments(command=tool_call_arguments["command"]),
+                        )
+                    )
                 elif tool_call["function"]["name"] == "get_random_integer":
-                    function_arguments = loads(tool_call["function"]["arguments"])
-                    function_calls.append(FunctionCall(
-                        function_name="get_random_integer",
-                        info=FunctionCallInfo(tool_call_id=tool_call["id"]),
-                        arguments=FunctionCallArguments(min=function_arguments["min"], max=function_arguments["max"]),
-                    ))
+                    tool_call_arguments = loads(tool_call["function"]["arguments"])
+                    tool_calls.append(
+                        ToolCall(
+                            id=tool_call["id"],
+                            function_name="get_random_integer",
+                            arguments=ToolCallArguments(min=tool_call_arguments["min"], max=tool_call_arguments["max"]),
+                        )
+                    )
                 elif tool_call["function"]["name"] == "web_search":
-                    function_arguments = loads(tool_call["function"]["arguments"])
-                    function_calls.append(FunctionCall(
-                        function_name="web_search",
-                        info=FunctionCallInfo(tool_call_id=tool_call["id"]),
-                        arguments=FunctionCallArguments(
-                            query=function_arguments["query"],
-                            max_results=function_arguments["max_results"],
-                            page=function_arguments["page"],
-                        ),
-                    ))
+                    tool_call_arguments = loads(tool_call["function"]["arguments"])
+                    tool_calls.append(
+                        ToolCall(
+                            function_name="web_search",
+                            id=tool_call["id"],
+                            arguments=ToolCallArguments(
+                                query=tool_call_arguments["query"],
+                                max_results=tool_call_arguments["max_results"],
+                                page=tool_call_arguments["page"],
+                            ),
+                        )
+                    )
                 elif tool_call["function"]["name"] == "web_fetch":
-                    function_arguments = loads(tool_call["function"]["arguments"])
-                    function_calls.append(FunctionCall(
-                        function_name="web_fetch",
-                        info=FunctionCallInfo(tool_call_id=tool_call["id"]),
-                        arguments=FunctionCallArguments(url=function_arguments["url"]),
-                    ))
-        return function_calls
+                    tool_call_arguments = loads(tool_call["function"]["arguments"])
+                    tool_calls.append(
+                        ToolCall(
+                            id=tool_call["id"],
+                            function_name="web_fetch",
+                            arguments=ToolCallArguments(url=tool_call_arguments["url"]),
+                        )
+                    )
+        return tool_calls

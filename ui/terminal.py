@@ -1,8 +1,6 @@
 from rich.console import Console
 from rich.markdown import Markdown
 
-from function import FunctionCall
-
 
 class TerminalUi:
     show_reasoning: bool
@@ -53,12 +51,12 @@ class TerminalUi:
             rich_console_instance.print(Markdown(message))
             print("\n", end="")
 
-    def display_tool_call_message(self, function_call_message: str, function_call_permission: bool) -> bool:
+    def display_tool_call_message(self, tool_call_message: str, tool_call_permission: bool) -> bool:
         print(
-            f"------------------------------------- TOOL -------------------------------------\n\n{function_call_message}\n\n",
+            f"------------------------------------- TOOL -------------------------------------\n\n{tool_call_message}\n\n",
             end="",
         )
-        if function_call_permission:
+        if tool_call_permission:
             return True
         try:
             input("Press ENTER to continue...")

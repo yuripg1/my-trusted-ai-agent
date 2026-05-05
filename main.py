@@ -1,12 +1,20 @@
-from ai.main import Ai, AiMessages
-from ai.deepseek import DeepSeekToolCall
+from ai.core import Ai, AiMessages
 from environment import Environment
-from function import FunctionCall,execute_bash_command,execute_function_call,get_default_function_call_permission,get_formatted_bash_command_output,get_function_call_message
-from ui.main import Ui
+from tool_calling import (
+    ToolCall,
+    execute_bash_command,
+    execute_tool_call,
+    get_default_tool_call_permission,
+    get_formatted_bash_command_output,
+    get_tool_call_message,
+)
+from ui.core import Ui
+
 
 def get_bash_command_as_system_message(command: str) -> str:
     stdout, stderr, returncode = execute_bash_command(True, command)
     return get_formatted_bash_command_output(command, True, stdout, stderr, returncode)
+
 
 def get_system_messages(environment: Environment, ui_system_instruction: str) -> list[str]:
     system_messages: list[str] = [
@@ -24,6 +32,7 @@ def get_system_messages(environment: Environment, ui_system_instruction: str) ->
         get_bash_command_as_system_message("date"),
     ]
     return system_messages
+
 
 def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui) -> None:
     messages: AiMessages = ai.create_messages()
@@ -45,15 +54,17 @@ def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui) -> None:
                     total_tokens: int = ai.request_reply(messages)
                     message, reasoning = ai.get_latest_message(messages)
                     ui.display_assistant_message(total_tokens, message, reasoning)
-                    function_calls: list[FunctionCall] = ai.get_function_calls_from_latest_message(messages)
-                    if len(function_calls) == 0:
+                    tool_calls: list[ToolCall] = ai.get_tool_calls_from_latest_message(messages)
+                    if len(tool_calls) == 0:
                         break
-                    for function_call in function_calls:
-                        function_call_message: str = get_function_call_message(function_call)
-                        default_function_call_permission: bool = get_default_function_call_permission(function_call)
-                        final_function_call_permission: bool = ui.display_tool_call_message(function_call_message, default_function_call_permission)
-                        function_call_output: str = execute_function_call(function_call, final_function_call_permission)
-                        has_added_tool_call: bool = ai.add_tool_call(messages, function_call, function_call_output)
+                    for tool_call in tool_calls:
+                        tool_call_message: str = get_tool_call_message(tool_call)
+                        default_tool_call_permission: bool = get_default_tool_call_permission(tool_call)
+                        final_tool_call_permission: bool = ui.display_tool_call_message(
+                            tool_call_message, default_tool_call_permission
+                        )
+                        tool_call_output: str = execute_tool_call(tool_call, final_tool_call_permission)
+                        has_added_tool_call: bool = ai.add_tool_call(messages, tool_call, tool_call_output)
                         if not has_added_tool_call:
                             break
     except KeyboardInterrupt:

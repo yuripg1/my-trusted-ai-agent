@@ -8,12 +8,14 @@ from ai.deepseek import (
     DeepSeekThinkingType,
 )
 from environment import Environment
-from function import FunctionCall
+from tool_calling import ToolCall
 
 AiProviderType = Literal["deepseek"]
 
+
 class AiMessages(TypedDict):
     deepseek_messages: NotRequired[list[DeepSeekMessage]]
+
 
 class Ai:
     provider: AiProviderType
@@ -70,9 +72,9 @@ class Ai:
         else:
             return False
 
-    def add_tool_call(self, messages: AiMessages, function_call: FunctionCall, output: str) -> bool:
+    def add_tool_call(self, messages: AiMessages, tool_call: ToolCall, output: str) -> bool:
         if self.provider == "deepseek" and self.deepseek_ai is not None and "deepseek_messages" in messages:
-            return self.deepseek_ai.add_tool_call(messages["deepseek_messages"], function_call, output)
+            return self.deepseek_ai.add_tool_call(messages["deepseek_messages"], tool_call, output)
         else:
             return False
 
@@ -83,9 +85,9 @@ class Ai:
         else:
             return 0
 
-    def get_function_calls_from_latest_message(self, messages: AiMessages) -> list[FunctionCall]:
+    def get_tool_calls_from_latest_message(self, messages: AiMessages) -> list[ToolCall]:
         if self.provider == "deepseek" and self.deepseek_ai is not None and "deepseek_messages" in messages:
-            return self.deepseek_ai.get_function_calls_from_latest_message(messages["deepseek_messages"])
+            return self.deepseek_ai.get_tool_calls_from_latest_message(messages["deepseek_messages"])
         else:
-            function_calls: list[FunctionCall] = []
-            return function_calls
+            tool_calls: list[ToolCall] = []
+            return tool_calls

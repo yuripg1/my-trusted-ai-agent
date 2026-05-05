@@ -7,11 +7,7 @@ from typing import Literal, NotRequired, Required, TypedDict
 FunctionNameType = Literal["run_bash_command", "get_random_integer", "web_search", "web_fetch"]
 
 
-class FunctionCallInfo(TypedDict):
-    tool_call_id: NotRequired[str]
-
-
-class FunctionCallArguments(TypedDict):
+class ToolCallArguments(TypedDict):
     command: NotRequired[str]
     min: NotRequired[int]
     max: NotRequired[int]
@@ -21,10 +17,10 @@ class FunctionCallArguments(TypedDict):
     url: NotRequired[str]
 
 
-class FunctionCall(TypedDict):
-    function_name: Required[FunctionNameType]
-    info: NotRequired[FunctionCallInfo]
-    arguments: NotRequired[FunctionCallArguments]
+class ToolCall(TypedDict):
+    id: NotRequired[str]
+    function_name: NotRequired[FunctionNameType]
+    arguments: Required[ToolCallArguments]
 
 
 class DuckDuckGoSearchResult(TypedDict):
@@ -33,21 +29,21 @@ class DuckDuckGoSearchResult(TypedDict):
     body: Required[str]
 
 
-def get_function_call_message(function_call: FunctionCall) -> str:
-    if function_call["function_name"] == "run_bash_command":
-        return f"$ {function_call["arguments"]["command"]}"
-    elif function_call["function_name"] == "get_random_integer":
-        return f'Generating a random integer between "{function_call["arguments"]["min"]}" (inclusive) and "{function_call["arguments"]["max"]}" (inclusive)'
-    elif function_call["function_name"] == "web_search":
-        return f'Searching the web for "{function_call["arguments"]["query"]}" ({function_call["arguments"]["max_results"]} results - page {function_call["arguments"]["page"]})'
-    elif function_call["function_name"] == "web_fetch":
-        return f'Fetching content from "{function_call["arguments"]["url"]}"'
+def get_tool_call_message(tool_call: ToolCall) -> str:
+    if tool_call["function_name"] == "run_bash_command":
+        return f"$ {tool_call["arguments"]["command"]}"
+    elif tool_call["function_name"] == "get_random_integer":
+        return f'Generating a random integer between "{tool_call["arguments"]["min"]}" (inclusive) and "{tool_call["arguments"]["max"]}" (inclusive)'
+    elif tool_call["function_name"] == "web_search":
+        return f'Searching the web for "{tool_call["arguments"]["query"]}" ({tool_call["arguments"]["max_results"]} results - page {tool_call["arguments"]["page"]})'
+    elif tool_call["function_name"] == "web_fetch":
+        return f'Fetching content from "{tool_call["arguments"]["url"]}"'
     return ""
 
 
-def get_default_function_call_permission(function_call: FunctionCall) -> bool:
+def get_default_tool_call_permission(tool_call: ToolCall) -> bool:
     permitted_functions: list[FunctionNameType] = ["get_random_integer", "web_search", "web_fetch"]
-    if function_call["function_name"] in permitted_functions:
+    if tool_call["function_name"] in permitted_functions:
         return True
     else:
         return False
@@ -110,22 +106,22 @@ def fetch_web_page(url: str) -> str:
     return f'<fetched_content url="{url}">\n{trimmed_result}\n</fetched_content>'
 
 
-def execute_function_call(function_call: FunctionCall, function_call_permission: bool) -> str:
-    if function_call["function_name"] == "run_bash_command":
-        command: str = function_call["arguments"]["command"]
-        stdout, stderr, returncode = execute_bash_command(function_call_permission, command)
-        return get_formatted_bash_command_output(command, function_call_permission, stdout, stderr, returncode)
-    elif function_call["function_name"] == "get_random_integer":
-        min: int = function_call["arguments"]["min"]
-        max: int = function_call["arguments"]["max"]
+def execute_tool_call(tool_call: ToolCall, tool_call_permission: bool) -> str:
+    if tool_call["function_name"] == "run_bash_command":
+        command: str = tool_call["arguments"]["command"]
+        stdout, stderr, returncode = execute_bash_command(tool_call_permission, command)
+        return get_formatted_bash_command_output(command, tool_call_permission, stdout, stderr, returncode)
+    elif tool_call["function_name"] == "get_random_integer":
+        min: int = tool_call["arguments"]["min"]
+        max: int = tool_call["arguments"]["max"]
         random_integer: int = randint(min, max)
         return f'<random_integer min="{min}" max="{max}">{random_integer}</random_integer>'
-    elif function_call["function_name"] == "web_search":
-        query: str = function_call["arguments"]["query"]
-        max_results: int = function_call["arguments"]["max_results"]
-        page: int = function_call["arguments"]["page"]
+    elif tool_call["function_name"] == "web_search":
+        query: str = tool_call["arguments"]["query"]
+        max_results: int = tool_call["arguments"]["max_results"]
+        page: int = tool_call["arguments"]["page"]
         return search_web(query, max_results, page)
-    elif function_call["function_name"] == "web_fetch":
-        url: str = function_call["arguments"]["url"]
+    elif tool_call["function_name"] == "web_fetch":
+        url: str = tool_call["arguments"]["url"]
         return fetch_web_page(url)
     return ""
