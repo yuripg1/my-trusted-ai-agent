@@ -3,6 +3,7 @@ from typing import cast, Self
 
 from ai.core import Ai, AiMessages, AiProviderType, ToolCall
 
+
 class Session:
     id: int | None
     ai_provider: AiProviderType
@@ -17,7 +18,10 @@ class Session:
 
     def load(self, ai: Ai, id: int, db_connection: Connection) -> Self:
         ai_provider = str(ai.provider)
-        cursor = db_connection.execute("SELECT id, ai_provider, context_length, messages FROM sessions WHERE id = ? and ai_provider = ?", (id,ai_provider))
+        cursor = db_connection.execute(
+            "SELECT id, ai_provider, context_length, messages FROM sessions WHERE id = ? and ai_provider = ?",
+            (id, ai_provider),
+        )
         fetched_data = cursor.fetchone()
         if fetched_data is not None:
             self.id = int(fetched_data["id"])
@@ -30,10 +34,16 @@ class Session:
         ai_provider: str = str(self.ai_provider)
         messages_json: str = ai.encode_messages_json(self.messages)
         if self.id is None:
-            cursor = db_connection.execute("INSERT INTO sessions (ai_provider, context_length, messages) VALUES (?, ?, ?)",(ai_provider, self.context_length, messages_json))
+            cursor = db_connection.execute(
+                "INSERT INTO sessions (ai_provider, context_length, messages) VALUES (?, ?, ?)",
+                (ai_provider, self.context_length, messages_json),
+            )
             self.id = cursor.lastrowid
         else:
-            db_connection.execute("UPDATE sessions SET ai_provider = ?, context_length = ?, messages = ?, updated_at = datetime(\"now\") WHERE id = ?",(ai_provider, self.context_length, messages_json, self.id))
+            db_connection.execute(
+                'UPDATE sessions SET ai_provider = ?, context_length = ?, messages = ?, updated_at = datetime("now") WHERE id = ?',
+                (ai_provider, self.context_length, messages_json, self.id),
+            )
         db_connection.commit()
 
     def rewind_message(self, ai: Ai) -> None:

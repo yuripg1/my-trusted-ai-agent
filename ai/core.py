@@ -13,8 +13,10 @@ from tool_calling import ToolCall
 
 AiProviderType = Literal["deepseek"]
 
+
 class AiMessages(TypedDict):
     deepseek_messages: NotRequired[list[DeepSeekMessage]]
+
 
 class Ai:
     provider: AiProviderType
@@ -92,7 +94,9 @@ class Ai:
     def decode_messages_json(self, messages_json: str) -> AiMessages:
         parsed_messages_json = loads(messages_json)
         if self.provider == "deepseek" and self.deepseek_ai is not None and "deepseek_messages" in parsed_messages_json:
-            return AiMessages(deepseek_messages=self.deepseek_ai.decode_messages_json(parsed_messages_json["deepseek_messages"]))
+            return AiMessages(
+                deepseek_messages=self.deepseek_ai.decode_messages_json(parsed_messages_json["deepseek_messages"])
+            )
         else:
             return AiMessages()
 

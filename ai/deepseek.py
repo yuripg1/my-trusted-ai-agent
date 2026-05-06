@@ -48,6 +48,7 @@ class DeepSeekRequest(TypedDict):
     tools: Required[list[Dict[str, Any]]]
     tool_choice: Required[str]
 
+
 class DeepSeekAi:
     api_key: str
     base_url: str
@@ -99,11 +100,7 @@ class DeepSeekAi:
                 new_generic_message["tool_calls"] = tool_calls
             messages.append(new_generic_message)
         elif role == "tool":
-            new_tool_message: DeepSeekMessage = {
-                "role": role,
-                "content": trimmed_content,
-                "tool_call_id": tool_call_id,
-            }
+            new_tool_message: DeepSeekMessage = {"role": role, "content": trimmed_content, "tool_call_id": tool_call_id}
             messages.append(new_tool_message)
 
     def create_messages(self) -> list[DeepSeekMessage]:
@@ -256,9 +253,18 @@ class DeepSeekAi:
             if "tool_calls" in parsed_deepseek_message:
                 new_deepseek_tool_calls: list[DeepSeekToolCall] = []
                 for parsed_deepseek_tool_calls in parsed_deepseek_message["tool_calls"]:
-                    new_deepseek_tool_call_type: DeepSeekToolCallType = cast(DeepSeekToolCallType, parsed_deepseek_tool_calls["type"])
-                    new_deepseek_tool_call_function: DeepSeekToolCallFunction = DeepSeekToolCallFunction(name=str(parsed_deepseek_tool_calls["function"]["name"]),arguments=str(parsed_deepseek_tool_calls["function"]["arguments"]))
-                    new_deepseek_tool_call: DeepSeekToolCall = DeepSeekToolCall(id=str(parsed_deepseek_tool_calls["id"]),type=new_deepseek_tool_call_type,function=new_deepseek_tool_call_function)
+                    new_deepseek_tool_call_type: DeepSeekToolCallType = cast(
+                        DeepSeekToolCallType, parsed_deepseek_tool_calls["type"]
+                    )
+                    new_deepseek_tool_call_function: DeepSeekToolCallFunction = DeepSeekToolCallFunction(
+                        name=str(parsed_deepseek_tool_calls["function"]["name"]),
+                        arguments=str(parsed_deepseek_tool_calls["function"]["arguments"]),
+                    )
+                    new_deepseek_tool_call: DeepSeekToolCall = DeepSeekToolCall(
+                        id=str(parsed_deepseek_tool_calls["id"]),
+                        type=new_deepseek_tool_call_type,
+                        function=new_deepseek_tool_call_function,
+                    )
                     new_deepseek_tool_calls.append(new_deepseek_tool_call)
                 new_deepseek_message["tool_calls"] = new_deepseek_tool_calls
             deepseek_messages.append(new_deepseek_message)

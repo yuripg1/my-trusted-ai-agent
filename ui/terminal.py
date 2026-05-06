@@ -45,21 +45,25 @@ class TerminalUi:
         print("\n", end="")
         return "\n".join(user_input_lines).strip()
 
-    def display_assistant_message(self, session_id: int | None, context_length: int, message: str, reasoning: str) -> None:
+    def display_assistant_message(
+        self, session_id: int | None, context_length: int, message: str, reasoning: str
+    ) -> None:
         rich_console_instance = Console(no_color=True)
         session_info: str = self.get_formatted_session_info(49, session_id, context_length)
         if self.show_reasoning and len(reasoning) != 0:
-            print(f"[ ASSISTANT - REASONING ] -----{session_info}\n\n",end="")
+            print(f"[ ASSISTANT - REASONING ] -----{session_info}\n\n", end="")
             rich_console_instance.print(Markdown(reasoning))
             print("\n", end="")
         if len(message) != 0:
-            print(f"[ ASSISTANT ] -----------------{session_info}\n\n",end="")
+            print(f"[ ASSISTANT ] -----------------{session_info}\n\n", end="")
             rich_console_instance.print(Markdown(message))
             print("\n", end="")
 
-    def display_tool_call_message(self, session_id: int | None, context_length: int, tool_call_message: str, tool_call_permission: bool) -> bool:
+    def display_tool_call_message(
+        self, session_id: int | None, context_length: int, tool_call_message: str, tool_call_permission: bool
+    ) -> bool:
         session_info: str = self.get_formatted_session_info(49, session_id, context_length)
-        print(f"[ TOOL ] ----------------------{session_info}\n\n{tool_call_message}\n\n",end="")
+        print(f"[ TOOL ] ----------------------{session_info}\n\n{tool_call_message}\n\n", end="")
         if tool_call_permission:
             return True
         try:

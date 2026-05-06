@@ -14,9 +14,11 @@ from tool_calling import (
 )
 from ui.core import Ui
 
+
 def get_bash_command_as_system_message(command: str) -> str:
     stdout, stderr, returncode = execute_bash_command(True, command)
     return get_formatted_bash_command_output(command, True, stdout, stderr, returncode)
+
 
 def get_system_messages(environment: Environment, ui_system_instruction: str) -> list[str]:
     system_messages: list[str] = [
@@ -34,6 +36,7 @@ def get_system_messages(environment: Environment, ui_system_instruction: str) ->
         get_bash_command_as_system_message("date"),
     ]
     return system_messages
+
 
 def ai_chat_loop(environment: Environment, db_connection: Connection, ai: Ai, ui: Ui) -> None:
     session: Session = Session(ai)
@@ -66,7 +69,9 @@ def ai_chat_loop(environment: Environment, db_connection: Connection, ai: Ai, ui
                     for tool_call in tool_calls:
                         tool_call_message: str = get_tool_call_message(tool_call)
                         default_tool_call_permission: bool = get_default_tool_call_permission(tool_call)
-                        final_tool_call_permission: bool = ui.display_tool_call_message(session_id, context_length, tool_call_message, default_tool_call_permission)
+                        final_tool_call_permission: bool = ui.display_tool_call_message(
+                            session_id, context_length, tool_call_message, default_tool_call_permission
+                        )
                         tool_call_output: str = execute_tool_call(tool_call, final_tool_call_permission)
                         has_added_tool_call: bool = session.add_tool_call(ai, tool_call, tool_call_output)
                         if not has_added_tool_call:
@@ -74,6 +79,7 @@ def ai_chat_loop(environment: Environment, db_connection: Connection, ai: Ai, ui
                 session.auto_save(ai, db_connection)
     except KeyboardInterrupt:
         ui.teardown()
+
 
 def main() -> None:
     environment = Environment()
