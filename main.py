@@ -20,8 +20,8 @@ def get_bash_command_as_system_message(command: str) -> str:
 
 def get_system_messages(environment: Environment, ui_system_instruction: str) -> list[str]:
     system_messages: list[str] = [
-        f"You must always reply using {environment.language} with proper grammar",
-        "You must always reply using strict Markdown syntax with proper formatting",
+        f"By default, you must always reply using {environment.language} with proper grammar (unless you see the need to reply in a different language)",
+        "By default, you must always reply using strict Markdown syntax with proper formatting (unless you see the need to reply in a different way)",
         'You are capable of running any bash commands on the user\'s system using the "run_bash_command" function',
         'You are capable of getting a random integer number using the "get_random_integer" function',
         'You are capable of searching the web using the "web_search" function',
@@ -40,17 +40,13 @@ def ai_chat_loop(environment: Environment, db_connection: Connection, ai: Ai, ui
     ui.startup()
     try:
         while True:
-            from json import dumps
-            print(session.id, end="\n\n")
-            print(dumps(session.messages, indent=2), end="\n\n")
-            user_input: str = ui.get_user_input()
+            session_id, context_length = session.get_info()
+            user_input: str = ui.get_user_input(session_id, context_length)
             if user_input == "/new":
                 session = Session(ai)
             elif user_input.startswith("/load "):
                 referenced_session_id = int(user_input.split(" ")[1])
                 session = Session(ai).load(ai, referenced_session_id, db_connection)
-            elif user_input == "/save":
-                session.save(ai, db_connection)
             elif user_input == "/rewind":
                 session.rewind_message(ai)
             else:
@@ -60,22 +56,22 @@ def ai_chat_loop(environment: Environment, db_connection: Connection, ai: Ai, ui
                 if not has_added_user_message:
                     continue
                 while True:
-                    total_tokens: int = session.request_assistant_reply(ai)
+                    session.request_assistant_reply(ai)
+                    session_id, context_length = session.get_info()
                     message, reasoning = session.get_latest_message(ai)
-                    ui.display_assistant_message(total_tokens, message, reasoning)
+                    ui.display_assistant_message(session_id, context_length, message, reasoning)
                     tool_calls: list[ToolCall] = session.get_tool_calls_from_latest_message(ai)
                     if len(tool_calls) == 0:
                         break
                     for tool_call in tool_calls:
                         tool_call_message: str = get_tool_call_message(tool_call)
                         default_tool_call_permission: bool = get_default_tool_call_permission(tool_call)
-                        final_tool_call_permission: bool = ui.display_tool_call_message(
-                            tool_call_message, default_tool_call_permission
-                        )
+                        final_tool_call_permission: bool = ui.display_tool_call_message(session_id, context_length, tool_call_message, default_tool_call_permission)
                         tool_call_output: str = execute_tool_call(tool_call, final_tool_call_permission)
                         has_added_tool_call: bool = session.add_tool_call(ai, tool_call, tool_call_output)
                         if not has_added_tool_call:
                             break
+                session.auto_save(ai, db_connection)
     except KeyboardInterrupt:
         ui.teardown()
 

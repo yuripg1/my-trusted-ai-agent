@@ -6,35 +6,39 @@ from ai.core import Ai, AiMessages, AiProviderType, ToolCall
 class Session:
     id: int | None
     ai_provider: AiProviderType
+    context_length: int
     messages: AiMessages
 
     def __init__(self, ai: Ai) -> None:
         self.id = None
         self.ai_provider = ai.provider
+        self.context_length = 0
         self.messages = ai.create_messages()
 
     def load(self, ai: Ai, id: int, db_connection: Connection) -> Self:
         ai_provider = str(ai.provider)
-        cursor = db_connection.execute("SELECT id, ai_provider, messages FROM sessions WHERE id = ? and ai_provider = ?", (id,ai_provider))
+        cursor = db_connection.execute("SELECT id, ai_provider, context_length, messages FROM sessions WHERE id = ? and ai_provider = ?", (id,ai_provider))
         fetched_data = cursor.fetchone()
         if fetched_data is not None:
             self.id = int(fetched_data["id"])
             self.ai_provider = cast(AiProviderType, fetched_data["ai_provider"])
+            self.context_length = int(fetched_data["context_length"])
             self.messages = ai.decode_messages_json(str(fetched_data["messages"]))
         return self
 
-    def save(self, ai: Ai, db_connection: Connection) -> None:
+    def auto_save(self, ai: Ai, db_connection: Connection) -> None:
         ai_provider: str = str(self.ai_provider)
         messages_json: str = ai.encode_messages_json(self.messages)
         if self.id is None:
-            cursor = db_connection.execute("INSERT INTO sessions (ai_provider, messages) VALUES (?, ?)",(ai_provider, messages_json))
+            cursor = db_connection.execute("INSERT INTO sessions (ai_provider, context_length, messages) VALUES (?, ?, ?)",(ai_provider, self.context_length, messages_json))
             self.id = cursor.lastrowid
         else:
-            db_connection.execute("UPDATE sessions SET ai_provider = ?, messages = ?, updated_at = datetime(\"now\") WHERE id = ?",(ai_provider, messages_json, self.id))
+            db_connection.execute("UPDATE sessions SET ai_provider = ?, context_length = ?, messages = ?, updated_at = datetime(\"now\") WHERE id = ?",(ai_provider, self.context_length, messages_json, self.id))
         db_connection.commit()
 
     def rewind_message(self, ai: Ai) -> None:
         self.id = None
+        self.context_length = 0
         ai.rewind_message(self.messages)
 
     def add_system_messages(self, ai: Ai, system_messages: list[str]) -> None:
@@ -46,11 +50,14 @@ class Session:
     def add_tool_call(self, ai: Ai, tool_call: ToolCall, tool_call_output: str) -> bool:
         return ai.add_tool_call(self.messages, tool_call, tool_call_output)
 
-    def request_assistant_reply(self, ai: Ai) -> int:
-        return ai.request_assistant_reply(self.messages)
+    def request_assistant_reply(self, ai: Ai) -> None:
+        self.context_length = ai.request_assistant_reply(self.messages)
 
     def is_messages_empty(self, ai: Ai) -> bool:
         return ai.is_messages_empty(self.messages)
+
+    def get_info(self) -> tuple[int | None, int]:
+        return self.id, self.context_length
 
     def get_latest_message(self, ai: Ai) -> tuple[str, str]:
         return ai.get_latest_message(self.messages)

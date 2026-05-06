@@ -29,18 +29,18 @@ class Ui:
         if self.channel == "terminal" and self.terminal_ui is not None:
             self.terminal_ui.teardown()
 
-    def get_user_input(self) -> str:
+    def get_user_input(self, session_id: int | None, context_length: int) -> str:
         if self.channel == "terminal" and self.terminal_ui is not None:
-            return self.terminal_ui.get_user_input()
+            return self.terminal_ui.get_user_input(session_id, context_length)
         else:
             return ""
 
-    def display_assistant_message(self, total_tokens: int, message: str, reasoning: str = "") -> None:
+    def display_assistant_message(self, session_id: int | None, context_length: int, message: str, reasoning: str) -> None:
         if self.channel == "terminal" and self.terminal_ui is not None:
-            self.terminal_ui.display_assistant_message(total_tokens, message, reasoning)
+            self.terminal_ui.display_assistant_message(session_id, context_length, message, reasoning)
 
-    def display_tool_call_message(self, tool_call_message: str, tool_call_permission: bool) -> bool:
+    def display_tool_call_message(self, session_id: int | None, context_length: int, tool_call_message: str, tool_call_permission: bool) -> bool:
         if self.channel == "terminal" and self.terminal_ui is not None:
-            return self.terminal_ui.display_tool_call_message(tool_call_message, tool_call_permission)
+            return self.terminal_ui.display_tool_call_message(session_id, context_length, tool_call_message, tool_call_permission)
         else:
             return False
