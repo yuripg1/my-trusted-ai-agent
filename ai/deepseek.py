@@ -48,27 +48,6 @@ class DeepSeekRequest(TypedDict):
     tools: Required[list[Dict[str, Any]]]
     tool_choice: Required[str]
 
-def parse_messages_json(parsed_messages_json: Any) -> list[DeepSeekMessage]:
-    deepseek_messages: list[DeepSeekMessage] = []
-    for parsed_deepseek_message in parsed_messages_json:
-        new_deepseek_message: DeepSeekMessage = DeepSeekMessage(role=parsed_deepseek_message["role"])
-        if "content" in parsed_deepseek_message:
-            new_deepseek_message["content"] = str(parsed_deepseek_message["content"])
-        if "reasoning_content" in parsed_deepseek_message:
-            new_deepseek_message["reasoning_content"] = str(parsed_deepseek_message["reasoning_content"])
-        if "tool_call_id" in parsed_deepseek_message:
-            new_deepseek_message["tool_call_id"] = str(parsed_deepseek_message["tool_call_id"])
-        if "tool_calls" in parsed_deepseek_message:
-            new_deepseek_tool_calls: list[DeepSeekToolCall] = []
-            for parsed_deepseek_tool_calls in parsed_deepseek_message["tool_calls"]:
-                new_deepseek_tool_call_type: DeepSeekToolCallType = cast(DeepSeekToolCallType, parsed_deepseek_tool_calls["type"])
-                new_deepseek_tool_call_function: DeepSeekToolCallFunction = DeepSeekToolCallFunction(name=str(parsed_deepseek_tool_calls["function"]["name"]),arguments=str(parsed_deepseek_tool_calls["function"]["arguments"]))
-                new_deepseek_tool_call: DeepSeekToolCall = DeepSeekToolCall(id=str(parsed_deepseek_tool_calls["id"]),type=new_deepseek_tool_call_type,function=new_deepseek_tool_call_function)
-                new_deepseek_tool_calls.append(new_deepseek_tool_call)
-            new_deepseek_message["tool_calls"] = new_deepseek_tool_calls
-        deepseek_messages.append(new_deepseek_message)
-    return deepseek_messages
-
 class DeepSeekAi:
     api_key: str
     base_url: str
@@ -131,30 +110,13 @@ class DeepSeekAi:
         messages: list[DeepSeekMessage] = []
         return messages
 
-    def create_tool_calls(self) -> list[DeepSeekToolCall]:
-        tool_calls: list[DeepSeekToolCall] = []
-        return tool_calls
-
     def rewind_message(self, messages: list[DeepSeekMessage]) -> None:
         while len(messages) != 0 and messages[-1]["role"] != "user":
             del messages[-1]
         if len(messages) != 0:
             del messages[-1]
 
-    def is_messages_empty(self, messages: list[DeepSeekMessage]) -> bool:
-        return len(messages) == 0
-
-    def get_latest_message(self, messages: list[DeepSeekMessage]) -> tuple[str, str]:
-        message: str = ""
-        reasoning: str = ""
-        if len(messages) != 0:
-            latest_message_object: DeepSeekMessage = messages[-1]
-            message = latest_message_object["content"]
-            if "reasoning_content" in latest_message_object:
-                reasoning = latest_message_object["reasoning_content"]
-        return message, reasoning
-
-    def initialize_messages(self, messages: list[DeepSeekMessage], system_messages: list[str]) -> None:
+    def add_system_messages(self, messages: list[DeepSeekMessage], system_messages: list[str]) -> None:
         for system_message in system_messages:
             trimmed_system_message: str = system_message.strip()
             if len(trimmed_system_message) != 0:
@@ -168,15 +130,15 @@ class DeepSeekAi:
         else:
             return False
 
-    def add_tool_call(self, messages: list[DeepSeekMessage], tool_call: ToolCall, output: str) -> bool:
-        trimmed_output: str = output.strip()
-        if len(trimmed_output) != 0:
-            self.__add_to_messages(messages, "tool", trimmed_output, "", [], tool_call["id"])
+    def add_tool_call(self, messages: list[DeepSeekMessage], tool_call: ToolCall, tool_call_output: str) -> bool:
+        trimmed_tool_call_output: str = tool_call_output.strip()
+        if len(trimmed_tool_call_output) != 0:
+            self.__add_to_messages(messages, "tool", trimmed_tool_call_output, "", [], tool_call["id"])
             return True
         else:
             return False
 
-    def request_reply(self, messages: list[DeepSeekMessage]) -> int:
+    def request_assistant_reply(self, messages: list[DeepSeekMessage]) -> int:
         headers: Mapping[str, str] = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -197,7 +159,7 @@ class DeepSeekAi:
         if response.status_code != 200:
             if (response.status_code >= 500 and response.status_code <= 599) or response.status_code == 429:
                 sleep(self.wait_after_error)
-                return self.request_reply(messages)
+                return self.request_assistant_reply(messages)
             print(dumps(payload, indent=2))
             print(response.status_code)
             print(dumps(response.json(), indent=2))
@@ -220,6 +182,19 @@ class DeepSeekAi:
             )
         self.__add_to_messages(messages, "assistant", content, reasoning_content, tool_calls)
         return total_tokens
+
+    def is_messages_empty(self, messages: list[DeepSeekMessage]) -> bool:
+        return len(messages) == 0
+
+    def get_latest_message(self, messages: list[DeepSeekMessage]) -> tuple[str, str]:
+        message: str = ""
+        reasoning: str = ""
+        if len(messages) != 0:
+            latest_message_object: DeepSeekMessage = messages[-1]
+            message = latest_message_object["content"]
+            if "reasoning_content" in latest_message_object:
+                reasoning = latest_message_object["reasoning_content"]
+        return message, reasoning
 
     def get_tool_calls_from_latest_message(self, messages: list[DeepSeekMessage]) -> list[ToolCall]:
         tool_calls: list[ToolCall] = []
@@ -267,3 +242,24 @@ class DeepSeekAi:
                         )
                     )
         return tool_calls
+
+    def decode_messages_json(self, parsed_messages_json: Any) -> list[DeepSeekMessage]:
+        deepseek_messages: list[DeepSeekMessage] = []
+        for parsed_deepseek_message in parsed_messages_json:
+            new_deepseek_message: DeepSeekMessage = DeepSeekMessage(role=parsed_deepseek_message["role"])
+            if "content" in parsed_deepseek_message:
+                new_deepseek_message["content"] = str(parsed_deepseek_message["content"])
+            if "reasoning_content" in parsed_deepseek_message:
+                new_deepseek_message["reasoning_content"] = str(parsed_deepseek_message["reasoning_content"])
+            if "tool_call_id" in parsed_deepseek_message:
+                new_deepseek_message["tool_call_id"] = str(parsed_deepseek_message["tool_call_id"])
+            if "tool_calls" in parsed_deepseek_message:
+                new_deepseek_tool_calls: list[DeepSeekToolCall] = []
+                for parsed_deepseek_tool_calls in parsed_deepseek_message["tool_calls"]:
+                    new_deepseek_tool_call_type: DeepSeekToolCallType = cast(DeepSeekToolCallType, parsed_deepseek_tool_calls["type"])
+                    new_deepseek_tool_call_function: DeepSeekToolCallFunction = DeepSeekToolCallFunction(name=str(parsed_deepseek_tool_calls["function"]["name"]),arguments=str(parsed_deepseek_tool_calls["function"]["arguments"]))
+                    new_deepseek_tool_call: DeepSeekToolCall = DeepSeekToolCall(id=str(parsed_deepseek_tool_calls["id"]),type=new_deepseek_tool_call_type,function=new_deepseek_tool_call_function)
+                    new_deepseek_tool_calls.append(new_deepseek_tool_call)
+                new_deepseek_message["tool_calls"] = new_deepseek_tool_calls
+            deepseek_messages.append(new_deepseek_message)
+        return deepseek_messages
