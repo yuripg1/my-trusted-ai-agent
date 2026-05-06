@@ -1,4 +1,7 @@
+from sqlite3 import Connection
+
 from ai.core import Ai, AiMessages
+from database import get_connection, init_db, load_session, save_session
 from environment import Environment
 from tool_calling import (
     ToolCall,
@@ -34,8 +37,9 @@ def get_system_messages(environment: Environment, ui_system_instruction: str) ->
     return system_messages
 
 
-def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui) -> None:
+def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui, conn: Connection) -> None:
     messages: AiMessages = ai.create_messages()
+    current_session_id: int | None = None
     ui.startup()
     try:
         while True:
@@ -44,6 +48,23 @@ def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui) -> None:
                 ai.rewind_message(messages)
             elif user_input == "/new":
                 messages = ai.create_messages()
+                current_session_id = None
+            elif user_input == "/save":
+                if "deepseek_messages" in messages:
+                    saved_id = save_session(conn, messages["deepseek_messages"], current_session_id)
+                    if saved_id is not None:
+                        current_session_id = saved_id
+                        print(f"\nSaved as session #{saved_id}\n")
+            elif user_input.startswith("/load "):
+                try:
+                    session_id = int(user_input.split(" ", 1)[1])
+                    loaded_messages = load_session(conn, session_id)
+                    if loaded_messages is not None:
+                        messages = AiMessages(deepseek_messages=loaded_messages)
+                        current_session_id = session_id
+                        print(f"\nLoaded session #{session_id}\n")
+                except (IndexError, ValueError):
+                    pass
             else:
                 if ai.is_messages_empty(messages):
                     ai.initialize_messages(messages, get_system_messages(environment, ui.get_system_instruction()))
@@ -73,9 +94,11 @@ def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui) -> None:
 
 def main() -> None:
     environment = Environment()
+    conn = get_connection(environment.db_path)
+    init_db(conn)
     ai = Ai(environment)
     ui = Ui(environment)
-    ai_chat_loop(environment, ai, ui)
+    ai_chat_loop(environment, ai, ui, conn)
 
 
 if __name__ == "__main__":
