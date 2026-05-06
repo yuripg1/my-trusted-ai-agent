@@ -1,8 +1,9 @@
 from sqlite3 import Connection
 
-from ai.core import Ai, AiMessages
-from database import get_connection, init_db, load_session, save_session
+from ai.core import Ai
+from database import init_db, open_db_connection
 from environment import Environment
+from session import Session
 from tool_calling import (
     ToolCall,
     execute_bash_command,
@@ -21,61 +22,54 @@ def get_bash_command_as_system_message(command: str) -> str:
 
 def get_system_messages(environment: Environment, ui_system_instruction: str) -> list[str]:
     system_messages: list[str] = [
-        f"You must always reply using {environment.language} with proper grammar",
-        "You must always reply using strict Markdown syntax with proper formatting",
-        'You are capable of running any bash commands on the user\'s system using the "run_bash_command" function',
-        'You are capable of getting a random integer number using the "get_random_integer" function',
-        'You are capable of searching the web using the "web_search" function',
-        'You are capable of fetching web pages using the "web_fetch" function',
-        ui_system_instruction,
-        get_bash_command_as_system_message("getent passwd ${USER}"),
-        get_bash_command_as_system_message("uname -a"),
-        get_bash_command_as_system_message("cat /etc/os-release"),
-        get_bash_command_as_system_message("hostnamectl"),
+        # f"You must always reply using {environment.language} with proper grammar",
+        # "You must always reply using strict Markdown syntax with proper formatting",
+        # 'You are capable of running any bash commands on the user\'s system using the "run_bash_command" function',
+        # 'You are capable of getting a random integer number using the "get_random_integer" function',
+        # 'You are capable of searching the web using the "web_search" function',
+        # 'You are capable of fetching web pages using the "web_fetch" function',
+        # ui_system_instruction,
+        # get_bash_command_as_system_message("getent passwd ${USER}"),
+        # get_bash_command_as_system_message("uname -a"),
+        # get_bash_command_as_system_message("cat /etc/os-release"),
+        # get_bash_command_as_system_message("hostnamectl"),
         get_bash_command_as_system_message("date"),
     ]
     return system_messages
 
+def create_new_session(ai: Ai) -> Session:
+    return Session(messages=ai.create_messages())
 
-def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui, conn: Connection) -> None:
-    messages: AiMessages = ai.create_messages()
-    current_session_id: int | None = None
+def ai_chat_loop(environment: Environment, db_connection: Connection, ai: Ai, ui: Ui) -> None:
+    current_session: Session = create_new_session(ai)
     ui.startup()
     try:
         while True:
+            from json import dumps
+            print(current_session.id, end="\n\n")
+            print(dumps(current_session.messages, indent=2), end="\n\n")
             user_input: str = ui.get_user_input()
-            if user_input == "/rewind":
-                ai.rewind_message(messages)
-            elif user_input == "/new":
-                messages = ai.create_messages()
-                current_session_id = None
+            if user_input == "/new":
+                current_session = create_new_session(ai)
+            elif user_input == "/rewind":
+                ai.rewind_message(current_session.messages)
+                current_session.clear_id()
             elif user_input == "/save":
-                if "deepseek_messages" in messages:
-                    saved_id = save_session(conn, messages["deepseek_messages"], current_session_id)
-                    if saved_id is not None:
-                        current_session_id = saved_id
-                        print(f"\nSaved as session #{saved_id}\n")
+                current_session.save(db_connection)
             elif user_input.startswith("/load "):
-                try:
-                    session_id = int(user_input.split(" ", 1)[1])
-                    loaded_messages = load_session(conn, session_id)
-                    if loaded_messages is not None:
-                        messages = AiMessages(deepseek_messages=loaded_messages)
-                        current_session_id = session_id
-                        print(f"\nLoaded session #{session_id}\n")
-                except (IndexError, ValueError):
-                    pass
+                referenced_session_id = int(user_input.split(" ")[1])
+                current_session = Session(session_id=referenced_session_id,db_connection=db_connection)
             else:
-                if ai.is_messages_empty(messages):
-                    ai.initialize_messages(messages, get_system_messages(environment, ui.get_system_instruction()))
-                has_added_user_message: bool = ai.add_user_message(messages, user_input)
+                if ai.is_messages_empty(current_session.messages):
+                    ai.initialize_messages(current_session.messages, get_system_messages(environment, ui.get_system_instruction()))
+                has_added_user_message: bool = ai.add_user_message(current_session.messages, user_input)
                 if not has_added_user_message:
                     continue
                 while True:
-                    total_tokens: int = ai.request_reply(messages)
-                    message, reasoning = ai.get_latest_message(messages)
+                    total_tokens: int = ai.request_reply(current_session.messages)
+                    message, reasoning = ai.get_latest_message(current_session.messages)
                     ui.display_assistant_message(total_tokens, message, reasoning)
-                    tool_calls: list[ToolCall] = ai.get_tool_calls_from_latest_message(messages)
+                    tool_calls: list[ToolCall] = ai.get_tool_calls_from_latest_message(current_session.messages)
                     if len(tool_calls) == 0:
                         break
                     for tool_call in tool_calls:
@@ -85,7 +79,7 @@ def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui, conn: Connection) -> 
                             tool_call_message, default_tool_call_permission
                         )
                         tool_call_output: str = execute_tool_call(tool_call, final_tool_call_permission)
-                        has_added_tool_call: bool = ai.add_tool_call(messages, tool_call, tool_call_output)
+                        has_added_tool_call: bool = ai.add_tool_call(current_session.messages, tool_call, tool_call_output)
                         if not has_added_tool_call:
                             break
     except KeyboardInterrupt:
@@ -94,11 +88,11 @@ def ai_chat_loop(environment: Environment, ai: Ai, ui: Ui, conn: Connection) -> 
 
 def main() -> None:
     environment = Environment()
-    conn = get_connection(environment.db_path)
-    init_db(conn)
+    db_connection = open_db_connection(environment.db_path)
+    init_db(db_connection)
     ai = Ai(environment)
     ui = Ui(environment)
-    ai_chat_loop(environment, ai, ui, conn)
+    ai_chat_loop(environment, db_connection, ai, ui)
 
 
 if __name__ == "__main__":

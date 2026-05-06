@@ -1,3 +1,4 @@
+from json import dumps, loads
 from typing import cast, Literal, NotRequired, TypedDict
 
 from ai.deepseek import (
@@ -6,16 +7,25 @@ from ai.deepseek import (
     DeepSeekModelType,
     DeepSeekReasoningEffortType,
     DeepSeekThinkingType,
+    parse_messages_json as deepseek_parse_messages_json,
 )
 from environment import Environment
 from tool_calling import ToolCall
 
 AiProviderType = Literal["deepseek"]
 
-
 class AiMessages(TypedDict):
     deepseek_messages: NotRequired[list[DeepSeekMessage]]
 
+def serialize_messages_json(messages: AiMessages) -> str:
+    return dumps(messages)
+
+def parse_messages_json(messages_json: str) -> AiMessages:
+    parsed_messages_json = loads(messages_json)
+    if "deepseek_messages" in parsed_messages_json:
+        return AiMessages(deepseek_messages=deepseek_parse_messages_json(parsed_messages_json["deepseek_messages"]))
+    else:
+        return AiMessages()
 
 class Ai:
     provider: AiProviderType
@@ -40,11 +50,9 @@ class Ai:
 
     def create_messages(self) -> AiMessages:
         if self.provider == "deepseek" and self.deepseek_ai is not None:
-            deepseek_messages: AiMessages = AiMessages(deepseek_messages=self.deepseek_ai.create_messages())
-            return deepseek_messages
+            return AiMessages(deepseek_messages=self.deepseek_ai.create_messages())
         else:
-            ai_messages: AiMessages = AiMessages()
-            return ai_messages
+            return AiMessages()
 
     def rewind_message(self, messages: AiMessages) -> None:
         if self.provider == "deepseek" and self.deepseek_ai is not None and "deepseek_messages" in messages:

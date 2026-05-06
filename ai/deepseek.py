@@ -1,12 +1,12 @@
 from json import dumps, loads
 from requests import post
 from time import sleep
-from typing import Any, Dict, Literal, Mapping, NotRequired, Required, TypedDict
+from typing import Any, cast, Dict, Literal, Mapping, NotRequired, Required, TypedDict
 
 from ai.deepseek_tools import DEEPSEEK_TOOLS
 from tool_calling import ToolCall, ToolCallArguments
 
-DeepSeekFunctionType = Literal["function"]
+DeepSeekToolCallType = Literal["function"]
 DeepSeekRoleType = Literal["assistant", "tool", "user", "system"]
 DeepSeekToolChoiceType = Literal["none", "auto", "required"]
 DeepSeekModelType = Literal["deepseek-v4-flash", "deepseek-v4-pro"]
@@ -22,7 +22,7 @@ class DeepSeekToolCallFunction(TypedDict):
 
 class DeepSeekToolCall(TypedDict):
     id: Required[str]
-    type: Required[DeepSeekFunctionType]
+    type: Required[DeepSeekToolCallType]
     function: Required[DeepSeekToolCallFunction]
 
 
@@ -48,6 +48,26 @@ class DeepSeekRequest(TypedDict):
     tools: Required[list[Dict[str, Any]]]
     tool_choice: Required[str]
 
+def parse_messages_json(parsed_messages_json: Any) -> list[DeepSeekMessage]:
+    deepseek_messages: list[DeepSeekMessage] = []
+    for parsed_deepseek_message in parsed_messages_json:
+        new_deepseek_message: DeepSeekMessage = DeepSeekMessage(role=parsed_deepseek_message["role"])
+        if "content" in parsed_deepseek_message:
+            new_deepseek_message["content"] = str(parsed_deepseek_message["content"])
+        if "reasoning_content" in parsed_deepseek_message:
+            new_deepseek_message["reasoning_content"] = str(parsed_deepseek_message["reasoning_content"])
+        if "tool_call_id" in parsed_deepseek_message:
+            new_deepseek_message["tool_call_id"] = str(parsed_deepseek_message["tool_call_id"])
+        if "tool_calls" in parsed_deepseek_message:
+            new_deepseek_tool_calls: list[DeepSeekToolCall] = []
+            for parsed_deepseek_tool_calls in parsed_deepseek_message["tool_calls"]:
+                new_deepseek_tool_call_type: DeepSeekToolCallType = cast(DeepSeekToolCallType, parsed_deepseek_tool_calls["type"])
+                new_deepseek_tool_call_function: DeepSeekToolCallFunction = DeepSeekToolCallFunction(name=str(parsed_deepseek_tool_calls["function"]["name"]),arguments=str(parsed_deepseek_tool_calls["function"]["arguments"]))
+                new_deepseek_tool_call: DeepSeekToolCall = DeepSeekToolCall(id=str(parsed_deepseek_tool_calls["id"]),type=new_deepseek_tool_call_type,function=new_deepseek_tool_call_function)
+                new_deepseek_tool_calls.append(new_deepseek_tool_call)
+            new_deepseek_message["tool_calls"] = new_deepseek_tool_calls
+        deepseek_messages.append(new_deepseek_message)
+    return deepseek_messages
 
 class DeepSeekAi:
     api_key: str
