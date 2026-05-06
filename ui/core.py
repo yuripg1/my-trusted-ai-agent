@@ -39,7 +39,7 @@ class Ui:
         if self.channel == "terminal" and self.terminal_ui is not None:
             self.terminal_ui.display_assistant_message(total_tokens, message, reasoning)
 
-    def display_tool_call_message(self, tool_call_message: str, tool_call_permission) -> bool:
+    def display_tool_call_message(self, tool_call_message: str, tool_call_permission: bool) -> bool:
         if self.channel == "terminal" and self.terminal_ui is not None:
             return self.terminal_ui.display_tool_call_message(tool_call_message, tool_call_permission)
         else:

@@ -125,11 +125,13 @@ class DeepSeekAi:
         return len(messages) == 0
 
     def get_latest_message(self, messages: list[DeepSeekMessage]) -> tuple[str, str]:
-        latest_message_object: DeepSeekMessage = messages[-1]
-        message: str = latest_message_object["content"]
+        message: str = ""
         reasoning: str = ""
-        if "reasoning_content" in latest_message_object:
-            reasoning = latest_message_object["reasoning_content"]
+        if len(messages) != 0:
+            latest_message_object: DeepSeekMessage = messages[-1]
+            message = latest_message_object["content"]
+            if "reasoning_content" in latest_message_object:
+                reasoning = latest_message_object["reasoning_content"]
         return message, reasoning
 
     def initialize_messages(self, messages: list[DeepSeekMessage], system_messages: list[str]) -> None:
