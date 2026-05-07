@@ -1,9 +1,9 @@
 from json import dumps, loads
-from requests import post
+from requests import post, Response
 from time import sleep
 from typing import Any, cast, Dict, Literal, Mapping, NotRequired, Required, TypedDict
 
-from ai.deepseek_tools import DEEPSEEK_TOOLS
+from ai.deepseek_api_tools import DEEPSEEK_API_TOOLS
 from tool_calling import ToolCall, ToolCallArguments
 
 DeepSeekToolCallType = Literal["function"]
@@ -13,6 +13,11 @@ DeepSeekModelType = Literal["deepseek-v4-flash", "deepseek-v4-pro"]
 DeepSeekThinkingType = Literal["enabled", "disabled"]
 DeepSeekReasoningEffortType = Literal["high", "max"]
 DeepSeekResponseFormat = Literal["text", "json_object"]
+
+API_STREAM: bool = False
+API_TOOL_CHOICE: DeepSeekToolChoiceType = "auto"
+API_TIMEOUT: int = 60
+API_WAIT_AFTER_ERROR: int = 2
 
 
 class DeepSeekToolCallFunction(TypedDict):
@@ -76,10 +81,6 @@ class DeepSeekAi:
         self.thinking = thinking
         self.reasoning_effort = reasoning_effort
         self.max_tokens = max_tokens
-        self.stream = False
-        self.tools = DEEPSEEK_TOOLS
-        self.tool_choice = "auto"
-        self.wait_after_error = 2
 
     def __add_to_messages(
         self,
@@ -146,18 +147,24 @@ class DeepSeekAi:
             "messages": messages,
             "thinking": payload_thinking,
             "max_tokens": self.max_tokens,
-            "stream": self.stream,
-            "tool_choice": self.tool_choice,
-            "tools": self.tools,
+            "stream": API_STREAM,
+            "tool_choice": API_TOOL_CHOICE,
+            "tools": DEEPSEEK_API_TOOLS,
         }
         if payload["thinking"]["type"] == "enabled":
             payload["reasoning_effort"] = self.reasoning_effort
-        response = post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
-        if response.status_code != 200:
-            if (response.status_code >= 500 and response.status_code <= 599) or response.status_code == 429:
+        response: Response | None = None
+        try:
+            response = post(f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=API_TIMEOUT)
+        except:
+            pass
+        if response is None or response.status_code != 200:
+            if (
+                response is None or response.status_code >= 500 and response.status_code <= 599
+            ) or response.status_code == 429:
                 sleep(self.wait_after_error)
                 return self.request_assistant_reply(messages)
-            print(dumps(payload, indent=2))
+            print(dumps(payload, indent=API_WAIT_AFTER_ERROR))
             print(response.status_code)
             print(dumps(response.json(), indent=2))
         data = response.json()
@@ -216,11 +223,11 @@ class DeepSeekAi:
                             arguments=ToolCallArguments(min=tool_call_arguments["min"], max=tool_call_arguments["max"]),
                         )
                     )
-                elif tool_call["function"]["name"] == "web_search":
+                elif tool_call["function"]["name"] == "search_web":
                     tool_call_arguments = loads(tool_call["function"]["arguments"])
                     tool_calls.append(
                         ToolCall(
-                            function_name="web_search",
+                            function_name="search_web",
                             id=tool_call["id"],
                             arguments=ToolCallArguments(
                                 query=tool_call_arguments["query"],
@@ -229,13 +236,24 @@ class DeepSeekAi:
                             ),
                         )
                     )
-                elif tool_call["function"]["name"] == "web_fetch":
+                elif tool_call["function"]["name"] == "fetch_web_page":
                     tool_call_arguments = loads(tool_call["function"]["arguments"])
                     tool_calls.append(
                         ToolCall(
                             id=tool_call["id"],
-                            function_name="web_fetch",
+                            function_name="fetch_web_page",
                             arguments=ToolCallArguments(url=tool_call_arguments["url"]),
+                        )
+                    )
+                elif tool_call["function"]["name"] == "read_pdf_document":
+                    tool_call_arguments = loads(tool_call["function"]["arguments"])
+                    tool_calls.append(
+                        ToolCall(
+                            id=tool_call["id"],
+                            function_name="read_pdf_document",
+                            arguments=ToolCallArguments(
+                                source_type=tool_call_arguments["source_type"], source=tool_call_arguments["source"]
+                            ),
                         )
                     )
         return tool_calls

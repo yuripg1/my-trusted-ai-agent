@@ -1,11 +1,20 @@
 from ddgs import DDGS
 from ddgs.exceptions import DDGSException
+from io import BytesIO
+from pypdf import PdfReader
 from random import randint
+from requests import get, Response
 from subprocess import run
 from trafilatura import extract, fetch_url
-from typing import Literal, NotRequired, Required, TypedDict
+from typing import Any, Literal, NotRequired, Required, TypedDict
 
-FunctionNameType = Literal["run_bash_command", "get_random_integer", "web_search", "web_fetch"]
+FunctionNameType = Literal[
+    "run_bash_command", "get_random_integer", "search_web", "fetch_web_page", "read_pdf_document"
+]
+
+SEARCH_TIMEOUT: int = 60
+SEARCH_SAFESEARCH: str = "off"
+DOCUMENT_REQUEST_TIMEOUT: int = 60
 
 
 class ToolCallArguments(TypedDict):
@@ -16,6 +25,8 @@ class ToolCallArguments(TypedDict):
     max_results: NotRequired[int]
     page: NotRequired[int]
     url: NotRequired[str]
+    source_type: NotRequired[str]
+    source: NotRequired[str]
 
 
 class ToolCall(TypedDict):
@@ -24,7 +35,7 @@ class ToolCall(TypedDict):
     arguments: Required[ToolCallArguments]
 
 
-class DuckDuckGoSearchResult(TypedDict):
+class SearchResult(TypedDict):
     title: Required[str]
     href: Required[str]
     body: Required[str]
@@ -34,18 +45,21 @@ def get_tool_call_message(tool_call: ToolCall) -> str:
     if tool_call["function_name"] == "run_bash_command":
         return f"$ {tool_call["arguments"]["command"]}"
     elif tool_call["function_name"] == "get_random_integer":
-        return f'Generating a random integer between "{tool_call["arguments"]["min"]}" (inclusive) and "{tool_call["arguments"]["max"]}" (inclusive)'
-    elif tool_call["function_name"] == "web_search":
+        return f'Generating a random integer between "{tool_call["arguments"]["min"]}" and "{tool_call["arguments"]["max"]}"'
+    elif tool_call["function_name"] == "search_web":
         return f'Searching the web for "{tool_call["arguments"]["query"]}" ({tool_call["arguments"]["max_results"]} results - page {tool_call["arguments"]["page"]})'
-    elif tool_call["function_name"] == "web_fetch":
+    elif tool_call["function_name"] == "fetch_web_page":
         return f'Fetching content from "{tool_call["arguments"]["url"]}"'
+    elif tool_call["function_name"] == "read_pdf_document":
+        return f'Reading PDF document from "{tool_call["arguments"]["source"]}"'
     return ""
 
 
 def get_default_tool_call_permission(tool_call: ToolCall) -> bool:
-    permitted_functions: list[FunctionNameType] = ["get_random_integer", "web_search", "web_fetch"]
-    if tool_call["function_name"] in permitted_functions:
+    if tool_call["function_name"] in ["get_random_integer", "search_web", "fetch_web_page"]:
         return True
+    elif tool_call["function_name"] == "read_pdf_document":
+        return tool_call["arguments"]["source_type"] == "remote"
     else:
         return False
 
@@ -79,15 +93,19 @@ def get_formatted_bash_command_output(
 def search_web(query: str, max_results: int, page: int) -> str:
     raw_search_results = []
     try:
-        raw_search_results = list(DDGS().text(query=query, safesearch="off", max_results=max_results, page=page))
+        raw_search_results = list(
+            DDGS(timeout=SEARCH_TIMEOUT).text(
+                query=query, safesearch=SEARCH_SAFESEARCH, max_results=max_results, page=page
+            )
+        )
     except DDGSException:
         pass
     if len(raw_search_results) == 0:
         return f'No results found for "{query}"'
-    search_results: list[DuckDuckGoSearchResult] = []
+    search_results: list[SearchResult] = []
     for raw_search_result in raw_search_results:
         search_results.append(
-            DuckDuckGoSearchResult(
+            SearchResult(
                 title=raw_search_result["title"], href=raw_search_result["href"], body=raw_search_result["body"]
             )
         )
@@ -97,18 +115,44 @@ def search_web(query: str, max_results: int, page: int) -> str:
             f"<search_result>\n<title>{search_result["title"]}</title>\n<href>{search_result["href"]}</href>\n<body>\n{search_result["body"]}\n</body>\n</search_result>"
         )
     joined_search_results: str = "\n".join(text_results)
-    return f'<search_results query="{query}" max_results="{max_results}" page="{page}">\n{joined_search_results}\n</search_results>'
+    return f'<web_search query="{query}" max_results="{max_results}" page="{page}">\n{joined_search_results}\n</search_results>'
 
 
 def fetch_web_page(url: str) -> str:
-    downloaded = fetch_url(url)
-    if downloaded is None:
-        return f'Could not fetch content from "{url}"'
-    result = extract(downloaded, output_format="markdown", with_metadata=False)
-    trimmed_result: str = result.strip() if result is not None else ""
-    if len(trimmed_result) == 0:
-        return f'No extractable text content found at "{url}"'
-    return f'<fetched_content url="{url}">\n{trimmed_result}\n</fetched_content>'
+    text_content: str = ""
+    try:
+        raw_content = fetch_url(url)
+        text_content = str(extract(raw_content, output_format="markdown", with_metadata=False)).strip()
+    except:
+        pass
+    if len(text_content) == 0:
+        return f'Could not fetch web page at "{url}"'
+    return f'<fetched_content url="{url}">\n{text_content}\n</fetched_content>'
+
+
+def read_pdf_document(source_type: str, source: str) -> str:
+    text_pdf_content: str = ""
+    raw_pdf_content: bytes | Any | None = None
+    try:
+        if source_type == "local":
+            with open(source, "rb") as pdf_file:
+                raw_pdf_content = pdf_file.read()
+        elif source_type == "remote":
+            response: Response = get(source, timeout=DOCUMENT_REQUEST_TIMEOUT)
+            raw_pdf_content = response.content
+    except:
+        pass
+    if type(raw_pdf_content) is bytes:
+        reader = PdfReader(BytesIO(raw_pdf_content))
+        text_parts: list[str] = []
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if len(page_text) != 0:
+                text_parts.append(page_text)
+        text_pdf_content = "\n".join(text_parts).strip()
+    if len(text_pdf_content) == 0:
+        return f'Could not read PDF document at "{source}"'
+    return f'<pdf_document source_type="{source_type}" source="{source}">\n{text_pdf_content}\n</read_pdf_document>'
 
 
 def execute_tool_call(tool_call: ToolCall, tool_call_permission: bool) -> str:
@@ -121,12 +165,16 @@ def execute_tool_call(tool_call: ToolCall, tool_call_permission: bool) -> str:
         max: int = tool_call["arguments"]["max"]
         random_integer: int = randint(min, max)
         return f'<random_integer min="{min}" max="{max}">{random_integer}</random_integer>'
-    elif tool_call["function_name"] == "web_search":
+    elif tool_call["function_name"] == "search_web":
         query: str = tool_call["arguments"]["query"]
         max_results: int = tool_call["arguments"]["max_results"]
         page: int = tool_call["arguments"]["page"]
         return search_web(query, max_results, page)
-    elif tool_call["function_name"] == "web_fetch":
+    elif tool_call["function_name"] == "fetch_web_page":
         url: str = tool_call["arguments"]["url"]
         return fetch_web_page(url)
+    elif tool_call["function_name"] == "read_pdf_document":
+        source_type: str = tool_call["arguments"]["source_type"]
+        source: str = tool_call["arguments"]["source"]
+        return read_pdf_document(source_type, source)
     return ""
