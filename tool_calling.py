@@ -1,4 +1,5 @@
 from ddgs import DDGS
+from ddgs.exceptions import DDGSException
 from random import randint
 from subprocess import run
 from trafilatura import extract, fetch_url
@@ -76,7 +77,11 @@ def get_formatted_bash_command_output(
 
 
 def search_web(query: str, max_results: int, page: int) -> str:
-    raw_search_results = list(DDGS().text(query=query, safesearch="off", max_results=max_results, page=page))
+    raw_search_results = []
+    try:
+        raw_search_results = list(DDGS().text(query=query, safesearch="off", max_results=max_results, page=page))
+    except DDGSException:
+        pass
     if len(raw_search_results) == 0:
         return f'No results found for "{query}"'
     search_results: list[DuckDuckGoSearchResult] = []
