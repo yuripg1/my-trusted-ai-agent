@@ -9,7 +9,7 @@ from trafilatura import extract, fetch_url
 from typing import Any, Literal, NotRequired, Required, TypedDict
 
 FunctionNameType = Literal[
-    "run_bash_command", "get_random_integer", "search_web", "fetch_web_page", "read_pdf_document"
+    "run_bash_command", "get_random_integer", "search_web", "read_pdf_document", "fetch_web_page"
 ]
 
 SEARCH_TIMEOUT: int = 60
@@ -48,10 +48,12 @@ def get_tool_call_message(tool_call: ToolCall) -> str:
         return f'Generating a random integer between "{tool_call["arguments"]["min"]}" and "{tool_call["arguments"]["max"]}"'
     elif tool_call["function_name"] == "search_web":
         return f'Searching the web for "{tool_call["arguments"]["query"]}" ({tool_call["arguments"]["max_results"]} results - page {tool_call["arguments"]["page"]})'
+    elif tool_call["function_name"] == "read_pdf_document":
+        return (
+            f'Reading PDF document from "{tool_call["arguments"]["source"]}" ({tool_call["arguments"]["source_type"]})'
+        )
     elif tool_call["function_name"] == "fetch_web_page":
         return f'Fetching content from "{tool_call["arguments"]["url"]}"'
-    elif tool_call["function_name"] == "read_pdf_document":
-        return f'Reading PDF document from "{tool_call["arguments"]["source"]}"'
     return ""
 
 
@@ -118,6 +120,32 @@ def search_web(query: str, max_results: int, page: int) -> str:
     return f'<web_search query="{query}" max_results="{max_results}" page="{page}">\n{joined_search_results}\n</search_results>'
 
 
+def read_pdf_document(source_type: str, source: str) -> str:
+    text_pdf_content: str = ""
+    try:
+        raw_pdf_content: bytes | Any | None = None
+        if source_type == "local":
+            with open(source, "rb") as pdf_file:
+                raw_pdf_content = pdf_file.read()
+        elif source_type == "remote":
+            response: Response = get(source, timeout=DOCUMENT_REQUEST_TIMEOUT)
+            raw_pdf_content = response.content
+        if type(raw_pdf_content) is bytes:
+            if raw_pdf_content[:4] == b"%PDF":
+                reader = PdfReader(BytesIO(raw_pdf_content))
+                text_parts: list[str] = []
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if len(page_text) != 0:
+                        text_parts.append(page_text)
+                text_pdf_content = "\n".join(text_parts).strip()
+    except:
+        pass
+    if len(text_pdf_content) == 0:
+        return f'Could not read PDF document at "{source}"'
+    return f'<pdf_document source_type="{source_type}" source="{source}">\n{text_pdf_content}\n</read_pdf_document>'
+
+
 def fetch_web_page(url: str) -> str:
     text_content: str = ""
     try:
@@ -128,31 +156,6 @@ def fetch_web_page(url: str) -> str:
     if len(text_content) == 0:
         return f'Could not fetch web page at "{url}"'
     return f'<fetched_content url="{url}">\n{text_content}\n</fetched_content>'
-
-
-def read_pdf_document(source_type: str, source: str) -> str:
-    text_pdf_content: str = ""
-    raw_pdf_content: bytes | Any | None = None
-    try:
-        if source_type == "local":
-            with open(source, "rb") as pdf_file:
-                raw_pdf_content = pdf_file.read()
-        elif source_type == "remote":
-            response: Response = get(source, timeout=DOCUMENT_REQUEST_TIMEOUT)
-            raw_pdf_content = response.content
-    except:
-        pass
-    if type(raw_pdf_content) is bytes:
-        reader = PdfReader(BytesIO(raw_pdf_content))
-        text_parts: list[str] = []
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if len(page_text) != 0:
-                text_parts.append(page_text)
-        text_pdf_content = "\n".join(text_parts).strip()
-    if len(text_pdf_content) == 0:
-        return f'Could not read PDF document at "{source}"'
-    return f'<pdf_document source_type="{source_type}" source="{source}">\n{text_pdf_content}\n</read_pdf_document>'
 
 
 def execute_tool_call(tool_call: ToolCall, tool_call_permission: bool) -> str:

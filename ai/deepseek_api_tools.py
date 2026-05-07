@@ -55,21 +55,8 @@ DEEPSEEK_API_TOOLS: list[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "fetch_web_page",
-            "description": "Fetch and extract the main text content from a web page",
-            "parameters": {
-                "type": "object",
-                "properties": {"url": {"type": "string", "description": "The URL of the web page to fetch and read"}},
-                "required": ["url"],
-                "additionalProperties": False,
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "read_pdf_document",
-            "description": "Fetch and extract the main text content from a PDF document",
+            "description": "Fetch and extract the main text content from a PDF document (from the web or local)",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -77,6 +64,19 @@ DEEPSEEK_API_TOOLS: list[Dict[str, Any]] = [
                     "source": {"type": "string", "description": "Source of the PDF file (remote URL or local path)"},
                 },
                 "required": ["source", "source_type"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_web_page",
+            "description": "Fetch and extract the main text content from a web page",
+            "parameters": {
+                "type": "object",
+                "properties": {"url": {"type": "string", "description": "The URL of the web page to fetch and read"}},
+                "required": ["url"],
                 "additionalProperties": False,
             },
         },

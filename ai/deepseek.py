@@ -236,15 +236,6 @@ class DeepSeekAi:
                             ),
                         )
                     )
-                elif tool_call["function"]["name"] == "fetch_web_page":
-                    tool_call_arguments = loads(tool_call["function"]["arguments"])
-                    tool_calls.append(
-                        ToolCall(
-                            id=tool_call["id"],
-                            function_name="fetch_web_page",
-                            arguments=ToolCallArguments(url=tool_call_arguments["url"]),
-                        )
-                    )
                 elif tool_call["function"]["name"] == "read_pdf_document":
                     tool_call_arguments = loads(tool_call["function"]["arguments"])
                     tool_calls.append(
@@ -254,6 +245,15 @@ class DeepSeekAi:
                             arguments=ToolCallArguments(
                                 source_type=tool_call_arguments["source_type"], source=tool_call_arguments["source"]
                             ),
+                        )
+                    )
+                elif tool_call["function"]["name"] == "fetch_web_page":
+                    tool_call_arguments = loads(tool_call["function"]["arguments"])
+                    tool_calls.append(
+                        ToolCall(
+                            id=tool_call["id"],
+                            function_name="fetch_web_page",
+                            arguments=ToolCallArguments(url=tool_call_arguments["url"]),
                         )
                     )
         return tool_calls
