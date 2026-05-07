@@ -1,4 +1,4 @@
-# My trusted agent
+# My trusted AI agent
 
 This projects aims at implementing a minimalistic terminal-based AI agent that is cheap to run.
 
@@ -12,11 +12,22 @@ This projects aims at implementing a minimalistic terminal-based AI agent that i
 
 ---
 
+## Special commands
+
+* **/new** : Starts a new session
+* **/load n** : Loads previous session with ID "n"
+* **/rewind** : Rewind back to right before the latest user prompt
+
+---
+
 ## Security
 
-The AI agent does have support for tool calling, including the ability to execute any bash commands on the system.
+The AI agent does have support for tool calling.
 
-However, for security reasons, all bash command needs to be manually approved by the user before being executed.
+However, for security reasons, the following actions require manual user permission:
+
+* Execution of bash commands
+* Reading of local PDF documents
 
 ---
 
