@@ -1,7 +1,7 @@
 from sqlite3 import Connection
 
 from ai.core import Ai
-from database import init_db, open_db_connection
+from database import close_db_connection, init_db, open_db_connection
 from environment import Environment
 from entities.session import Session
 from tool_calling import (
@@ -88,6 +88,7 @@ def main() -> None:
     ai = Ai(environment)
     ui = Ui(environment)
     ai_chat_loop(environment, db_connection, ai, ui)
+    close_db_connection
 
 
 if __name__ == "__main__":
