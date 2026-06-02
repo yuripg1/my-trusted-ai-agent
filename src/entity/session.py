@@ -102,6 +102,7 @@ class Session:
 
     def export_to_xml(self, ai: Ai) -> str:
         lines: list[str] = []
+        lines.append('<?xml version="1.0" encoding="UTF-8"?>')
         lines.append("<session>")
         message_index: int = 0
         while True:
@@ -114,9 +115,10 @@ class Session:
                 continue
             role: str = message["role"]
             if role in ["user", "assistant"]:
-                lines.append(f'<message role="{role}">')
-                lines.append(message_content)
-                lines.append("</message>")
+                safe_content: str = message_content.replace("]]>", "]]]]><![CDATA[>")
+                lines.append(f"<message role=\"{role}\"><![CDATA[")
+                lines.append(safe_content)
+                lines.append("]]></message>")
             message_index += 1
         lines.append("</session>")
         return "\n".join(lines).strip() + "\n"
