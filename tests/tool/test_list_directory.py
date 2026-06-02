@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from tool.common import make_xml_tag
 from tool.list_directory import (
     ListDirectoryArguments,
     get_list_directory_message,
@@ -41,9 +42,9 @@ class TestListDirectory:
         src_directory: Path = target.joinpath("src")
         src_directory.mkdir()
         result: str = list_directory(ListDirectoryArguments(path=str(target)))
-        read_file_entry: str = f'<entry type="file" size="5">{readme_file.name}</entry>'
-        symlink_entry: str = f'<entry type="symlink" target="{str(readme_file)}" target_type="file" target_size="5">{symlink.name}</entry>'
-        sec_directory_entry: str = f'<entry type="directory" entries="0">{src_directory.name}</entry>'
+        read_file_entry: str = make_xml_tag("entry", readme_file.name, 'type="file" size="5"')
+        symlink_entry: str = make_xml_tag("entry", symlink.name, f'type="symlink" target="{str(readme_file)}" target_type="file" target_size="5"')
+        sec_directory_entry: str = make_xml_tag("entry", src_directory.name, 'type="directory" entries="0"')
         assert result.startswith(f'<directory_listing path="{str(target)}">\n<entry')
         assert result.endswith("</entry>\n</directory_listing>")
         assert read_file_entry in result
@@ -58,7 +59,7 @@ class TestListDirectory:
         symlink: Path = tmp_path.joinpath("link_to_docs")
         symlink.symlink_to(target)
         result: str = list_directory(ListDirectoryArguments(path=str(tmp_path)))
-        expected_symlink_entry: str = f'<entry type="symlink" target="{str(target)}" target_type="directory" target_entries="1">{symlink.name}</entry>'
+        expected_symlink_entry: str = make_xml_tag("entry", symlink.name, f'type="symlink" target="{str(target)}" target_type="directory" target_entries="1"')
         assert expected_symlink_entry in result
 
     def test_list_directory_with_broken_symlink(self, tmp_path: Path) -> None:
@@ -70,7 +71,7 @@ class TestListDirectory:
         target.unlink()
         result: str = list_directory(ListDirectoryArguments(path=str(tmp_path)))
         resolved_target: str = str(symlink.resolve(strict=False))
-        expected_symlink_entry: str = f'<entry type="symlink" target="{resolved_target}">{symlink.name}</entry>'
+        expected_symlink_entry: str = make_xml_tag("entry", symlink.name, f'type="symlink" target="{resolved_target}"')
         assert expected_symlink_entry in result
 
     def test_list_directory_with_symlink_resolve_failure(self, tmp_path: Path) -> None:
@@ -81,7 +82,7 @@ class TestListDirectory:
         symlink.symlink_to("/nonexistent")
         with patch.object(Path, "resolve", side_effect=Exception("Resolve error")):
             result: str = list_directory(ListDirectoryArguments(path=str(target)))
-            expected_symlink_entry: str = f'<entry type="symlink">{symlink.name}</entry>'
+            expected_symlink_entry: str = make_xml_tag("entry", symlink.name, 'type="symlink"')
             assert expected_symlink_entry in result
 
     def test_list_directory_with_single_directory_compression(self, tmp_path: Path) -> None:
@@ -95,8 +96,8 @@ class TestListDirectory:
         result: str = list_directory(ListDirectoryArguments(path=str(tmp_path)))
         assert result.startswith(f'<directory_listing path="{str(tmp_path)}">')
         assert result.endswith("</directory_listing>")
-        assert '<entry type="file" size="3">outer/inner/file1.txt</entry>' in result
-        assert '<entry type="file" size="3">outer/inner/file2.txt</entry>' in result
+        assert make_xml_tag("entry", "outer/inner/file1.txt", 'type="file" size="3"') in result
+        assert make_xml_tag("entry", "outer/inner/file2.txt", 'type="file" size="3"') in result
 
     def test_list_directory_with_nested_compression(self, tmp_path: Path) -> None:
         """Compress a chain of multiple single-directory entries"""
@@ -110,7 +111,7 @@ class TestListDirectory:
         result: str = list_directory(ListDirectoryArguments(path=str(tmp_path)))
         assert (
             result
-            == f'<directory_listing path="{str(tmp_path)}">\n<entry type="file" size="7">a/b/c/data.txt</entry>\n</directory_listing>'
+            == f'<directory_listing path="{str(tmp_path)}">\n{make_xml_tag("entry", "a/b/c/data.txt", 'type="file" size="7"')}\n</directory_listing>'
         )
 
     def test_list_directory_compression_stops_at_symlink(self, tmp_path: Path) -> None:
@@ -122,7 +123,7 @@ class TestListDirectory:
         link.symlink_to(target)
         result: str = list_directory(ListDirectoryArguments(path=str(tmp_path)))
         resolved_target: str = str(target.resolve())
-        expected_symlink_entry: str = f'<entry type="symlink" target="{resolved_target}" target_type="directory" target_entries="1">{link.name}</entry>'
+        expected_symlink_entry: str = make_xml_tag("entry", link.name, f'type="symlink" target="{resolved_target}" target_type="directory" target_entries="1"')
         assert expected_symlink_entry in result
 
     def test_list_directory_compression_stops_at_multiple_entries(self, tmp_path: Path) -> None:
@@ -135,8 +136,8 @@ class TestListDirectory:
         result: str = list_directory(ListDirectoryArguments(path=str(tmp_path)))
         assert result.startswith(f'<directory_listing path="{str(tmp_path)}">')
         assert result.endswith("</directory_listing>")
-        assert '<entry type="directory" entries="0">inner/subdir</entry>' in result
-        assert '<entry type="file" size="5">inner/readme.txt</entry>' in result
+        assert make_xml_tag("entry", "inner/subdir", 'type="directory" entries="0"') in result
+        assert make_xml_tag("entry", "inner/readme.txt", 'type="file" size="5"') in result
 
     def test_list_directory_compression_empty_final(self, tmp_path: Path) -> None:
         """Compress through a chain but find an empty directory at the end"""
@@ -160,7 +161,7 @@ class TestListDirectory:
         current.joinpath("file.txt").write_text("deep")
         result: str = list_directory(ListDirectoryArguments(path=str(tmp_path)))
         expected_prefix: str = "/".join([f"level_{i}" for i in range(10)]) + "/"
-        assert f'<entry type="directory" entries="1">{expected_prefix}level_10</entry>' in result
+        assert make_xml_tag("entry", f"{expected_prefix}level_10", 'type="directory" entries="1"') in result
 
     def test_list_empty_directory(self, tmp_path: Path) -> None:
         """List an empty directory"""
@@ -220,7 +221,7 @@ class TestListDirectory:
         mystery_file.write_text("content")
         with patch.object(Path, "is_file", side_effect=Exception("Exception")):
             result: str = list_directory(ListDirectoryArguments(path=str(target)))
-            mystery_file_entry: str = f"<entry>{mystery_file.name}</entry>"
+            mystery_file_entry: str = make_xml_tag("entry", mystery_file.name)
             assert result == f'<directory_listing path="{str(target)}">\n{mystery_file_entry}\n</directory_listing>'
 
     def test_unknown_entry_type(self, tmp_path: Path) -> None:
@@ -235,5 +236,5 @@ class TestListDirectory:
             patch.object(Path, "is_file", return_value=False),
         ):
             result: str = list_directory(ListDirectoryArguments(path=str(target)))
-            mystery_file_entry: str = f"<entry>{mystery_file.name}</entry>"
+            mystery_file_entry: str = make_xml_tag("entry", mystery_file.name)
             assert result == f'<directory_listing path="{str(target)}">\n{mystery_file_entry}\n</directory_listing>'

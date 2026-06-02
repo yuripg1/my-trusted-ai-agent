@@ -4,7 +4,7 @@ from typing import Any, Literal, Required, TypedDict
 from primp import Client, Response
 from pypdf import PdfReader
 
-from tool.common import BaseToolCall
+from tool.common import BaseToolCall, make_xml_tag
 
 
 class ReadPdfDocumentArguments(TypedDict):
@@ -88,7 +88,7 @@ def read_pdf_document(arguments: ReadPdfDocumentArguments, tool_call_permission:
                         ).strip()
                         if len(pdf_document_page_text) != 0:
                             output_pages_entries.append(
-                                f'<page number="{page_number}">\n{pdf_document_page_text}\n</page>'
+                                make_xml_tag("page", pdf_document_page_text, f'number="{page_number}"')
                             )
                     if len(output_pages_entries) != 0:
                         joined_output_pages_entries = "\n".join(output_pages_entries)

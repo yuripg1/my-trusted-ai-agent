@@ -1,6 +1,6 @@
 from typing import Literal, NotRequired, Required, TypedDict
 
-from tool.common import BaseToolCall
+from tool.common import BaseToolCall, make_xml_tag
 
 
 class ReadFileArguments(TypedDict):
@@ -73,7 +73,7 @@ def read_file(arguments: ReadFileArguments, tool_call_permission: bool = True) -
                     number_of_read_lines = number_of_file_lines
                 output_entries.append(f"<number_of_read_lines>{number_of_read_lines}</number_of_read_lines>")
                 output_entries.append(f"<number_of_file_lines>{number_of_file_lines}</number_of_file_lines>")
-                output_entries.append(f"<content>\n{file_content}\n</content>")
+                output_entries.append(make_xml_tag("content", file_content))
         except FileNotFoundError:
             output_entries.append("<error>File not found</error>")
         except PermissionError:

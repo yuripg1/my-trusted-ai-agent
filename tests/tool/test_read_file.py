@@ -87,7 +87,7 @@ class TestReadFile:
         result: str = read_file(ReadFileArguments(path=str(target)))
         assert (
             result
-            == f'<file_read path="{str(target)}">\n<number_of_read_lines>1</number_of_read_lines>\n<number_of_file_lines>1</number_of_file_lines>\n<content>\nhello world\n</content>\n</file_read>'
+            == f'<file_read path="{str(target)}">\n<number_of_read_lines>1</number_of_read_lines>\n<number_of_file_lines>1</number_of_file_lines>\n<content>\n<![CDATA[\nhello world\n]]>\n</content>\n</file_read>'
         )
 
     def test_read_file_not_found(self, tmp_path: Path) -> None:
@@ -134,7 +134,7 @@ class TestReadFile:
         result: str = read_file(ReadFileArguments(path=str(target), start_line=start_line, end_line=end_line))
         assert (
             result
-            == f'<file_read path="{str(target)}" start_line="{start_line}" end_line="{end_line}">\n<number_of_read_lines>3</number_of_read_lines>\n<number_of_file_lines>5</number_of_file_lines>\n<content>\nline2\nline3\nline4\n</content>\n</file_read>'
+            == f'<file_read path="{str(target)}" start_line="{start_line}" end_line="{end_line}">\n<number_of_read_lines>3</number_of_read_lines>\n<number_of_file_lines>5</number_of_file_lines>\n<content>\n<![CDATA[\nline2\nline3\nline4\n]]>\n</content>\n</file_read>'
         )
 
     def test_read_from_start_line(self, tmp_path: Path) -> None:
@@ -145,7 +145,7 @@ class TestReadFile:
         result: str = read_file(ReadFileArguments(path=str(target), start_line=start_line))
         assert (
             result
-            == f'<file_read path="{str(target)}" start_line="{start_line}">\n<number_of_read_lines>2</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\nline2\nline3\n</content>\n</file_read>'
+            == f'<file_read path="{str(target)}" start_line="{start_line}">\n<number_of_read_lines>2</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\n<![CDATA[\nline2\nline3\n]]>\n</content>\n</file_read>'
         )
 
     def test_read_up_to_end_line(self, tmp_path: Path) -> None:
@@ -156,7 +156,7 @@ class TestReadFile:
         result: str = read_file(ReadFileArguments(path=str(target), end_line=end_line))
         assert (
             result
-            == f'<file_read path="{str(target)}" end_line="{end_line}">\n<number_of_read_lines>2</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\nline1\nline2\n</content>\n</file_read>'
+            == f'<file_read path="{str(target)}" end_line="{end_line}">\n<number_of_read_lines>2</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\n<![CDATA[\nline1\nline2\n]]>\n</content>\n</file_read>'
         )
 
     def test_read_single_line(self, tmp_path: Path) -> None:
@@ -168,7 +168,7 @@ class TestReadFile:
         result: str = read_file(ReadFileArguments(path=str(target), start_line=start_line, end_line=end_line))
         assert (
             result
-            == f'<file_read path="{str(target)}" start_line="{start_line}" end_line="{end_line}">\n<number_of_read_lines>1</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\nline2\n</content>\n</file_read>'
+            == f'<file_read path="{str(target)}" start_line="{start_line}" end_line="{end_line}">\n<number_of_read_lines>1</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\n<![CDATA[\nline2\n]]>\n</content>\n</file_read>'
         )
 
     def test_read_crlf_file(self, tmp_path: Path) -> None:
@@ -180,7 +180,7 @@ class TestReadFile:
         result: str = read_file(ReadFileArguments(path=str(target), start_line=start_line, end_line=end_line))
         assert (
             result
-            == f'<file_read path="{str(target)}" start_line="{start_line}" end_line="{end_line}">\n<number_of_read_lines>1</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\nline2\n</content>\n</file_read>'
+            == f'<file_read path="{str(target)}" start_line="{start_line}" end_line="{end_line}">\n<number_of_read_lines>1</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\n<![CDATA[\nline2\n]]>\n</content>\n</file_read>'
         )
 
     def test_read_start_line_past_eof(self, tmp_path: Path) -> None:
@@ -191,7 +191,7 @@ class TestReadFile:
         result: str = read_file(ReadFileArguments(path=str(target), start_line=start_line))
         assert (
             result
-            == f'<file_read path="{str(target)}" start_line="{start_line}">\n<number_of_read_lines>0</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\n\n</content>\n</file_read>'
+            == f'<file_read path="{str(target)}" start_line="{start_line}">\n<number_of_read_lines>0</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\n<![CDATA[\n\n]]>\n</content>\n</file_read>'
         )
 
     def test_read_end_line_beyond_file(self, tmp_path: Path) -> None:
@@ -202,7 +202,7 @@ class TestReadFile:
         result: str = read_file(ReadFileArguments(path=str(target), end_line=end_line))
         assert (
             result
-            == f'<file_read path="{str(target)}" end_line="{end_line}">\n<number_of_read_lines>3</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\nline1\nline2\nline3\n</content>\n</file_read>'
+            == f'<file_read path="{str(target)}" end_line="{end_line}">\n<number_of_read_lines>3</number_of_read_lines>\n<number_of_file_lines>3</number_of_file_lines>\n<content>\n<![CDATA[\nline1\nline2\nline3\n]]>\n</content>\n</file_read>'
         )
 
     def test_read_start_line_less_than_1(self, tmp_path: Path) -> None:

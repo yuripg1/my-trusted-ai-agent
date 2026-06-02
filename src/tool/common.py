@@ -29,6 +29,20 @@ def make_safe_code_fence(content: str, info_string: str = "") -> str:
         return f"{fence}\n{content}\n{fence}"
 
 
+def escape_cdata_content(content: str) -> str:
+    return content.replace("]]>", "]]]]><![CDATA[>")
+
+
+def make_xml_tag(tag_name: str, content: str, attributes: str = "") -> str:
+    safe = escape_cdata_content(content)
+    if attributes:
+        attrs = attributes.strip()
+        open_tag = f"<{tag_name} {attrs}>"
+    else:
+        open_tag = f"<{tag_name}>"
+    return f"{open_tag}\n<![CDATA[\n{safe}\n]]>\n</{tag_name}>"
+
+
 def get_language_from_filename(path: str) -> str:
     with suppress(Exception):
         path = path.rstrip("/")

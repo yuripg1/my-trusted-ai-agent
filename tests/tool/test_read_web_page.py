@@ -46,7 +46,7 @@ class TestReadWebPage:
             patch("tool.read_web_page.extract", return_value=extracted_text),
         ):
             result: str = read_web_page(ReadWebPageArguments(url=url))
-        expected_result: str = f'<web_page_read url="{url}">\n<content>\n{extracted_text}\n</content>\n</web_page_read>'
+        expected_result: str = f'<web_page_read url="{url}">\n<content>\n<![CDATA[\n{extracted_text}\n]]>\n</content>\n</web_page_read>'
         assert result == expected_result
 
     def test_non_200_status_code(self) -> None:

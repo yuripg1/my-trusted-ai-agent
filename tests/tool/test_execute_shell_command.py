@@ -1,3 +1,4 @@
+from tool.common import make_xml_tag
 from tool.execute_shell_command import (
     ExecuteShellCommandArguments,
     execute_shell_command,
@@ -36,7 +37,7 @@ class TestExecuteShellCommand:
         exit_code: int = 0
         assert (
             result
-            == f"<shell_command_execution>\n<command>\n{command}\n</command>\n<stdout>\n{stdout_text}\n</stdout>\n<stderr>\n</stderr>\n<exit_code>{exit_code}</exit_code>\n</shell_command_execution>"
+            == f"<shell_command_execution>\n{make_xml_tag('command', command)}\n{make_xml_tag('stdout', stdout_text)}\n{make_xml_tag('stderr', '')}\n<exit_code>{exit_code}</exit_code>\n</shell_command_execution>"
         )
 
     def test_stderr_output(self) -> None:
@@ -47,7 +48,7 @@ class TestExecuteShellCommand:
         exit_code: int = 0
         assert (
             result
-            == f"<shell_command_execution>\n<command>\n{command}\n</command>\n<stdout>\n</stdout>\n<stderr>\n{stderr_text}\n</stderr>\n<exit_code>{exit_code}</exit_code>\n</shell_command_execution>"
+            == f"<shell_command_execution>\n{make_xml_tag('command', command)}\n{make_xml_tag('stdout', '')}\n{make_xml_tag('stderr', stderr_text)}\n<exit_code>{exit_code}</exit_code>\n</shell_command_execution>"
         )
 
     def test_non_zero_exit_code(self) -> None:
@@ -57,7 +58,7 @@ class TestExecuteShellCommand:
         exit_code: int = 1
         assert (
             result
-            == f"<shell_command_execution>\n<command>\n{command}\n</command>\n<stdout>\n</stdout>\n<stderr>\n</stderr>\n<exit_code>{exit_code}</exit_code>\n</shell_command_execution>"
+            == f"<shell_command_execution>\n{make_xml_tag('command', command)}\n{make_xml_tag('stdout', '')}\n{make_xml_tag('stderr', '')}\n<exit_code>{exit_code}</exit_code>\n</shell_command_execution>"
         )
 
     def test_command_denied_by_user(self) -> None:
@@ -66,5 +67,5 @@ class TestExecuteShellCommand:
         result: str = execute_shell_command(ExecuteShellCommandArguments(command=command), tool_call_permission=False)
         assert (
             result
-            == f"<shell_command_execution>\n<command>\n{command}\n</command>\n<error>Shell command execution manually denied by the user. The command was not executed</error>\n</shell_command_execution>"
+            == f"<shell_command_execution>\n{make_xml_tag('command', command)}\n<error>Shell command execution manually denied by the user. The command was not executed</error>\n</shell_command_execution>"
         )

@@ -2,7 +2,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Literal, Required, TypedDict
 
-from tool.common import BaseToolCall
+from tool.common import BaseToolCall, make_xml_tag
 
 
 class ListDirectoryArguments(TypedDict):
@@ -63,7 +63,7 @@ def list_directory(arguments: ListDirectoryArguments) -> str:
                 elif directory_entry.is_file():
                     entry_attributes += ' type="file"'
                     entry_attributes += f' size="{directory_entry.stat().st_size}"'
-            output_entries.append(f"<entry{entry_attributes}>{entry_name}</entry>")
+            output_entries.append(make_xml_tag("entry", entry_name, entry_attributes))
     except FileNotFoundError:
         output_entries.append("<error>Directory not found</error>")
     except NotADirectoryError:
