@@ -3,7 +3,7 @@ from typing import Literal, Required, TypedDict
 from primp import Client, Response
 from trafilatura import extract
 
-from tool.common import BaseToolCall, make_xml_tag
+from tool.common import BaseToolCall
 from tool.read_pdf_document import ReadPdfDocumentArguments, read_pdf_document
 
 
@@ -62,7 +62,7 @@ def read_web_page(arguments: ReadWebPageArguments) -> str:
             if extracted_content is not None:
                 trimmed_extracted_content: str = extracted_content.strip()
                 if len(trimmed_extracted_content) != 0:
-                    output_entries.append(make_xml_tag("content", trimmed_extracted_content))
+                    output_entries.append(f"<content>\n{trimmed_extracted_content}\n</content>")
         except Exception:
             output_entries.append("<error>Could not read the web page</error>")
             errored = True

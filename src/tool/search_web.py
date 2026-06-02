@@ -3,7 +3,7 @@ from typing import Literal, NotRequired, Required, TypedDict
 
 from ddgs import DDGS
 
-from tool.common import BaseToolCall, make_xml_tag
+from tool.common import BaseToolCall
 
 
 class SearchWebArguments(TypedDict):
@@ -32,7 +32,7 @@ def get_search_web_permission(arguments: SearchWebArguments) -> bool:
 def search_web(arguments: SearchWebArguments) -> str:
     output_entries: list[str] = []
     results_page_number: int = arguments.get("results_page_number", 1)
-    output_entries.append(make_xml_tag("query", arguments["query"]))
+    output_entries.append(f"<query>{arguments['query']}</query>")
     if arguments["max_results_per_page"] < 1:
         output_entries.append('<error>"max_results_per_page" must be greater than or equal to 1</error>')
     elif arguments["max_results_per_page"] > 10:
@@ -57,12 +57,8 @@ def search_web(arguments: SearchWebArguments) -> str:
                 search_result_number: int = (
                     (results_page_number - 1) * arguments["max_results_per_page"]
                 ) + page_result_number
-                output_entries.append("\n".join([
-                    f'<search_result result_number="{search_result_number}">',
-                    make_xml_tag("title", str(search_result_data["title"]).strip()),
-                    make_xml_tag("href", str(search_result_data["href"]).strip()),
-                    make_xml_tag("snippet", str(search_result_data["body"]).strip()),
-                    "</search_result>",
-                ]))
+                output_entries.append(
+                    f'<search_result result_number="{search_result_number}">\n<title>{str(search_result_data["title"]).strip()}</title>\n<href>{str(search_result_data["href"]).strip()}</href>\n<snippet>\n{str(search_result_data["body"]).strip()}\n</snippet>\n</search_result>'
+                )
     joined_output_entries: str = "\n".join(output_entries)
     return f'<web_search max_results_per_page="{arguments["max_results_per_page"]}" results_page_number="{results_page_number}">\n{joined_output_entries}\n</web_search>'

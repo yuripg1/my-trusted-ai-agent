@@ -111,7 +111,7 @@ class TestReadPdfDocument:
         location_type: str = "local"
         location: str = str(target)
         result: str = read_pdf_document(ReadPdfDocumentArguments(location_type=location_type, location=location))
-        expected_result: str = f'<pdf_document_read location_type="{location_type}" location="{location}">\n<pages>\n<page number="1">\n<![CDATA[\nFirst page content\n]]>\n</page>\n<page number="2">\n<![CDATA[\nSecond page content\n]]>\n</page>\n</pages>\n</pdf_document_read>'
+        expected_result: str = f'<pdf_document_read location_type="{location_type}" location="{location}">\n<pages>\n<page number="1">\nFirst page content\n</page>\n<page number="2">\nSecond page content\n</page>\n</pages>\n</pdf_document_read>'
         assert result == expected_result
 
     def test_read_local_pdf_not_found(self, tmp_path: Path) -> None:
@@ -153,7 +153,7 @@ class TestReadPdfDocument:
         result: str = read_pdf_document(
             ReadPdfDocumentArguments(location_type=location_type, location=location), note=note
         )
-        expected_result: str = f'<pdf_document_read location_type="{location_type}" location="{location}">\n<note>{note}</note>\n<pages>\n<page number="1">\n<![CDATA[\nFirst page content\n]]>\n</page>\n</pages>\n</pdf_document_read>'
+        expected_result: str = f'<pdf_document_read location_type="{location_type}" location="{location}">\n<note>{note}</note>\n<pages>\n<page number="1">\nFirst page content\n</page>\n</pages>\n</pdf_document_read>'
         assert result == expected_result
 
     def test_web_pdf_successfully(self, tmp_path: Path) -> None:
@@ -172,7 +172,7 @@ class TestReadPdfDocument:
         mock_client_instance.get.return_value = mock_response
         with patch("tool.read_pdf_document.Client", return_value=mock_client_instance):
             result: str = read_pdf_document(ReadPdfDocumentArguments(location_type="web", location=url))
-        expected_result: str = f'<pdf_document_read location_type="web" location="{url}">\n<pages>\n<page number="1">\n<![CDATA[\nWeb page 1 content\n]]>\n</page>\n<page number="2">\n<![CDATA[\nWeb page 2 content\n]]>\n</page>\n</pages>\n</pdf_document_read>'
+        expected_result: str = f'<pdf_document_read location_type="web" location="{url}">\n<pages>\n<page number="1">\nWeb page 1 content\n</page>\n<page number="2">\nWeb page 2 content\n</page>\n</pages>\n</pdf_document_read>'
         assert result == expected_result
 
     def test_web_pdf_invalid_header(self) -> None:

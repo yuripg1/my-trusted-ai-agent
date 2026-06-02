@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-from tool.common import make_xml_tag
 from tool.search_web import (
     SearchWebArguments,
     get_search_web_message,
@@ -42,13 +41,7 @@ class TestSearchWeb:
         search_result_entries: list[str] = []
         for entry_number, search_result in enumerate(mock_results, 1):
             search_result_number: int = ((results_page_number - 1) * max_results_per_page) + entry_number
-            search_result_entry: str = "\n".join([
-                f'<search_result result_number="{search_result_number}">',
-                make_xml_tag("title", search_result["title"]),
-                make_xml_tag("href", search_result["href"]),
-                make_xml_tag("snippet", search_result["body"]),
-                "</search_result>",
-            ])
+            search_result_entry: str = f'<search_result result_number="{search_result_number}">\n<title>{search_result["title"]}</title>\n<href>{search_result["href"]}</href>\n<snippet>\n{search_result["body"]}\n</snippet>\n</search_result>'
             search_result_entries.append(search_result_entry)
         mock_ddgs_instance: MagicMock = MagicMock()
         mock_ddgs_instance.text.return_value = mock_results
@@ -58,7 +51,7 @@ class TestSearchWeb:
                     query=query, max_results_per_page=max_results_per_page, results_page_number=results_page_number
                 )
             )
-        expected_result: str = f'<web_search max_results_per_page="{max_results_per_page}" results_page_number="{results_page_number}">\n{make_xml_tag("query", query)}\n{"\n".join(search_result_entries)}\n</web_search>'
+        expected_result: str = f'<web_search max_results_per_page="{max_results_per_page}" results_page_number="{results_page_number}">\n<query>{query}</query>\n{"\n".join(search_result_entries)}\n</web_search>'
         assert result == expected_result
 
     def test_no_results(self) -> None:
@@ -74,7 +67,7 @@ class TestSearchWeb:
                     query=query, max_results_per_page=max_results_per_page, results_page_number=results_page_number
                 )
             )
-        expected_result: str = f'<web_search max_results_per_page="{max_results_per_page}" results_page_number="{results_page_number}">\n{make_xml_tag("query", query)}\n<error>No search results found</error>\n</web_search>'
+        expected_result: str = f'<web_search max_results_per_page="{max_results_per_page}" results_page_number="{results_page_number}">\n<query>{query}</query>\n<error>No search results found</error>\n</web_search>'
         assert result == expected_result
 
     def test_search_exception(self) -> None:
@@ -90,7 +83,7 @@ class TestSearchWeb:
                     query=query, max_results_per_page=max_results_per_page, results_page_number=results_page_number
                 )
             )
-        expected_result: str = f'<web_search max_results_per_page="{max_results_per_page}" results_page_number="{results_page_number}">\n{make_xml_tag("query", query)}\n<error>No search results found</error>\n</web_search>'
+        expected_result: str = f'<web_search max_results_per_page="{max_results_per_page}" results_page_number="{results_page_number}">\n<query>{query}</query>\n<error>No search results found</error>\n</web_search>'
         assert result == expected_result
 
     def test_max_results_per_page_less_than_1(self) -> None:
@@ -98,7 +91,7 @@ class TestSearchWeb:
         result: str = search_web(SearchWebArguments(query="query", max_results_per_page=0))
         assert (
             result
-            == '<web_search max_results_per_page="0" results_page_number="1">\n<query>\n<![CDATA[\nquery\n]]>\n</query>\n<error>"max_results_per_page" must be greater than or equal to 1</error>\n</web_search>'
+            == '<web_search max_results_per_page="0" results_page_number="1">\n<query>query</query>\n<error>"max_results_per_page" must be greater than or equal to 1</error>\n</web_search>'
         )
 
     def test_max_results_per_page_greater_than_10(self) -> None:
@@ -106,7 +99,7 @@ class TestSearchWeb:
         result: str = search_web(SearchWebArguments(query="query", max_results_per_page=11))
         assert (
             result
-            == '<web_search max_results_per_page="11" results_page_number="1">\n<query>\n<![CDATA[\nquery\n]]>\n</query>\n<error>"max_results_per_page" must be less than or equal to 10</error>\n</web_search>'
+            == '<web_search max_results_per_page="11" results_page_number="1">\n<query>query</query>\n<error>"max_results_per_page" must be less than or equal to 10</error>\n</web_search>'
         )
 
     def test_results_page_number_less_than_1(self) -> None:
@@ -114,5 +107,5 @@ class TestSearchWeb:
         result: str = search_web(SearchWebArguments(query="query", max_results_per_page=10, results_page_number=0))
         assert (
             result
-            == '<web_search max_results_per_page="10" results_page_number="0">\n<query>\n<![CDATA[\nquery\n]]>\n</query>\n<error>"results_page_number" must be greater than or equal to 1</error>\n</web_search>'
+            == '<web_search max_results_per_page="10" results_page_number="0">\n<query>query</query>\n<error>"results_page_number" must be greater than or equal to 1</error>\n</web_search>'
         )
