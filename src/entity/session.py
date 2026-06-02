@@ -116,7 +116,7 @@ class Session:
             role: str = message["role"]
             if role in ["user", "assistant"]:
                 safe_content: str = message_content.replace("]]>", "]]]]><![CDATA[>")
-                lines.append(f"<message role=\"{role}\"><![CDATA[")
+                lines.append(f'<message role="{role}"><![CDATA[')
                 lines.append(safe_content)
                 lines.append("]]></message>")
             message_index += 1
